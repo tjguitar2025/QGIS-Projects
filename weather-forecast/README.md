@@ -19,7 +19,7 @@ and air quality.
 ## Pipeline
 
 ```
-ERA5 initial state (Copernicus CDS)
+Initial state: ECMWF open data, today 00z (or ERA5 via CDS with -Source cds)
   → FourCastNetv2-small inference on GPU (~2 min for 6 days on an RTX 4050)
   → forecast GRIB (73 variables)
   → scripts/grib_to_frames.py → PNG frames + leaflet-velocity wind JSON
@@ -32,7 +32,8 @@ ERA5 initial state (Copernicus CDS)
 2. `conda env create -f environment.yml`
 3. Install CUDA PyTorch: `conda run -n weather pip install torch --index-url https://download.pytorch.org/whl/cu128`
    and `conda run -n weather pip install onnxruntime-gpu`
-4. Create a free [Copernicus CDS](https://cds.climate.copernicus.eu) account and put your
+4. *(optional, only for `-Source cds`)* Create a free
+   [Copernicus CDS](https://cds.climate.copernicus.eu) account and put your
    key in `~/.cdsapirc`:
    ```
    url: https://cds.climate.copernicus.eu/api
@@ -48,14 +49,15 @@ ECMWF's official asset store.
 ## Run
 
 ```powershell
-.\run_forecast.ps1                        # generate a forecast (latest ERA5, 144h)
-.\run_forecast.ps1 -Date 20260704 -LeadTime 240
+.\run_forecast.ps1                        # 6-day forecast from today 00z (ECMWF open data)
+.\run_forecast.ps1 -LeadTime 240          # 10-day forecast
+.\run_forecast.ps1 -Source cds -Date 20260704   # init from ERA5 reanalysis instead
 .\start_app.ps1                           # start the app -> http://localhost:8050
 ```
 
-ERA5 lags real time by ~6 days, so the default init date is 6 days back —
-the forecast still covers today and beyond. Radar and air quality layers are
-live regardless.
+The default initial state is ECMWF open data (same-day, attribution CC BY 4.0,
+© ECMWF). `-Source cds` switches to ERA5 reanalysis, which lags real time by
+~6 days. Radar and air quality layers are live regardless.
 
 ## Skew-T soundings
 

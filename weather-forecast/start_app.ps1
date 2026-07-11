@@ -2,6 +2,14 @@
 $Base  = "$env:USERPROFILE\WeatherForecast"
 $Conda = "$env:USERPROFILE\miniconda3\Scripts\conda.exe"
 
+# already running? just open the browser
+try {
+    Invoke-WebRequest "http://localhost:8050/api/run-status" -UseBasicParsing -TimeoutSec 2 | Out-Null
+    Start-Process "http://localhost:8050"
+    Write-Host "Local Weather already running at http://localhost:8050" -ForegroundColor Green
+    return
+} catch { }
+
 $server = Start-Process -FilePath $Conda `
     -ArgumentList "run", "-n", "weather", "python", "$Base\server.py" `
     -WindowStyle Hidden -PassThru

@@ -49,3 +49,9 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
 .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
 .popup-temp { font-size: 22px; font-weight: 600; }
 .aq-marker { border-radius: 50%; text-align: center; color: #10203a; font-weight: 600; }
+
+/* leaflet-velocity wind readout (plugin ships no styles for it) */
+.leaflet-control-velocity {
+  padding: 4px 10px; margin-bottom: 8px; font-size: 11px;
+  background: rgba(16, 24, 40, 0.85); color: #b9c6da; border-radius: 6px;
+}

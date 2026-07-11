@@ -58,7 +58,10 @@ async function updateWind() {
       lineWidth: 1.5,
       colorScale: ["#9db8d8", "#b9d2ea", "#dbeafe", "#ffffff"],
       displayValues: true,
-      displayOptions: { velocityType: "wind", speedUnit: "m/s", position: "bottomleft" },
+      displayOptions: {
+        velocityType: "wind", speedUnit: "m/s", position: "bottomleft",
+        emptyString: "move mouse over map for wind speed",
+      },
     }).addTo(map);
   } else {
     velocityLayer.setData(data);
@@ -318,7 +321,8 @@ async function pollRun() {
   document.getElementById("initInfo").textContent =
     `Model init: ${fmtValid(state.timeline.init_time)} · ${state.timeline.steps.length} steps`;
   windBtn.classList.toggle("active", state.windOn);
-  await setProduct("2t");
+  const want = decodeURIComponent(location.hash.slice(1));
+  await setProduct(["2t", "msl", "tcwv", "radar", "aq"].includes(want) ? want : "2t");
   updateWind();
   pollRun();
 })();

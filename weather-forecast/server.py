@@ -31,8 +31,11 @@ def run_forecast():
         return {"state": "running"}
     LOG.parent.mkdir(exist_ok=True)
     logf = open(LOG, "w")
+    # -ExecutionPolicy Bypass: scoped to this child only — default Restricted
+    # policy would refuse to run the pipeline script at all
     run["proc"] = subprocess.Popen(
-        ["powershell", "-NoProfile", "-File", str(BASE / "run_forecast.ps1")],
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+         "-File", str(BASE / "run_forecast.ps1")],
         stdout=logf, stderr=subprocess.STDOUT, cwd=BASE,
     )
     run["state"] = "running"

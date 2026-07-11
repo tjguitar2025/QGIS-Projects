@@ -1,0 +1,6 @@
+data/
+assets/
+*.grib
+*.grib2
+*.idx
+*.tif

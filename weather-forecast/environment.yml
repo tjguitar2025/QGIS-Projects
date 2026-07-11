@@ -1,0 +1,22 @@
+name: weather
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - eccodes
+  - cfgrib
+  - xarray
+  - netcdf4
+  - dask
+  - matplotlib
+  - cartopy
+  - metpy          # Skew-T plots later (Phase 4)
+  - gdal
+  - rasterio
+  - cdsapi
+  - pip
+  - pip:
+      - ai-models
+      - ai-models-fourcastnetv2
+      - ai-models-panguweather

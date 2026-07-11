@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Weather</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <h1>Local Weather</h1>
+  <div class="section">Layers</div>
+  <button class="product" data-product="2t">🌡️ Temperature</button>
+  <button class="product" data-product="radar">🌧️ Radar (live)</button>
+  <button class="product" data-product="msl">🌀 Pressure</button>
+  <button class="product" data-product="tcwv">💧 Moisture</button>
+  <button class="product" data-product="aq">😷 Air Quality</button>
+  <div class="section">Overlay</div>
+  <button id="windToggle">💨 Wind particles</button>
+  <div class="section">Model</div>
+  <button id="runForecast">▶ Run new forecast</button>
+  <div id="runStatus"></div>
+  <div id="initInfo"></div>
+</div>
+
+<div id="legend"></div>
+
+<div id="timebar">
+  <button id="playBtn">▶</button>
+  <input id="timeSlider" type="range" min="0" max="0" value="0" step="1">
+  <div id="timeLabel">—</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

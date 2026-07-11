@@ -11,12 +11,13 @@ dependencies:
   - dask
   - matplotlib
   - cartopy
-  - metpy          # Skew-T plots later (Phase 4)
-  - gdal
-  - rasterio
+  - metpy          # Skew-T plots
+  - pillow
   - cdsapi
   - pip
   - pip:
       - ai-models
       - ai-models-fourcastnetv2
       - ai-models-panguweather
+      - fastapi
+      - uvicorn

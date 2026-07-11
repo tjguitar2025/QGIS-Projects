@@ -3,35 +3,28 @@
 #   .\run_forecast.ps1 -Date 20260704 -LeadTime 240
 param(
     [string]$Date = (Get-Date).ToUniversalTime().AddDays(-6).ToString("yyyyMMdd"),
-    [int]$LeadTime = 144,
-    [switch]$SkipGif
+    [int]$LeadTime = 144
 )
 
 $Base   = "$env:USERPROFILE\WeatherForecast"
 $Conda  = "$env:USERPROFILE\miniconda3\Scripts\conda.exe"
-$QgisPy = "C:\Program Files\QGIS 3.44.12\bin\python-qgis-ltr.bat"
 $Grib   = "$Base\data\forecasts\fcnv2_$Date.grib"
+$Frames = "$Base\scripts\grib_to_frames.py"
 
-Write-Host "=== 1/4 FourCastNetv2 forecast: init $Date 00z, +$LeadTime h ===" -ForegroundColor Cyan
+Write-Host "=== 1/2 FourCastNetv2 forecast: init $Date 00z, +$LeadTime h ===" -ForegroundColor Cyan
 & $Conda run -n weather ai-models --input cds --date $Date --time 0000 --lead-time $LeadTime `
     --assets "$Base\assets" --path $Grib fourcastnetv2-small
 if ($LASTEXITCODE -ne 0) { throw "ai-models failed" }
 
-Write-Host "=== 2/4 Converting variables to GeoTIFFs ===" -ForegroundColor Cyan
-# clear previous run's tiffs so QGIS layers match this forecast
-Remove-Item "$Base\data\geotiffs\*.tif" -ErrorAction SilentlyContinue
-foreach ($var in "2t", "wind", "msl") {
-    & $Conda run -n weather python "$Base\scripts\grib_to_geotiff.py" $Grib --var $var
-    if ($LASTEXITCODE -ne 0) { throw "conversion of $var failed" }
+Write-Host "=== 2/2 Rendering app frames ===" -ForegroundColor Cyan
+# clear the previous run's frames so the app timeline matches this forecast
+Remove-Item "$Base\app\frames\*" -Recurse -Force -ErrorAction SilentlyContinue
+# one process per variable keeps ecCodes/cfgrib memory bounded on big GRIBs
+foreach ($var in "2t", "msl", "tcwv", "wind") {
+    & $Conda run -n weather python $Frames $Grib --var $var
+    if ($LASTEXITCODE -ne 0) { throw "frame rendering of $var failed" }
 }
+& $Conda run -n weather python $Frames $Grib --timeline
+if ($LASTEXITCODE -ne 0) { throw "timeline generation failed" }
 
-Write-Host "=== 3/4 Rebuilding QGIS project ===" -ForegroundColor Cyan
-& $QgisPy "$Base\scripts\build_qgis_project.py"
-& $QgisPy "$Base\scripts\add_forecast_layers.py"
-
-if (-not $SkipGif) {
-    Write-Host "=== 4/4 Exporting GIF animation ===" -ForegroundColor Cyan
-    & $QgisPy "$Base\scripts\export_animation.py" --var 2t
-}
-
-Write-Host "Done. Open $Base\qgis\weather_forecast.qgz" -ForegroundColor Green
+Write-Host "Done. Start the app with .\start_app.ps1 (http://localhost:8050)" -ForegroundColor Green

@@ -1,0 +1,51 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-serif; }
+#map { position: absolute; inset: 0; background: #0b1526; }
+
+#panel {
+  position: absolute; top: 12px; left: 12px; z-index: 1000;
+  width: 190px; padding: 12px;
+  background: rgba(16, 24, 40, 0.92); color: #e6ecf5;
+  border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.45);
+}
+#panel h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.section { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8fa3c0; }
+#panel button {
+  display: block; width: 100%; margin: 4px 0; padding: 7px 10px;
+  text-align: left; font-size: 13px; color: #e6ecf5;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
+  border-radius: 7px; cursor: pointer;
+}
+#panel button:hover { background: rgba(255,255,255,.14); }
+#panel button.active { background: #2563eb; border-color: #3b82f6; }
+#panel button:disabled { opacity: .5; cursor: default; }
+#runStatus, #initInfo { font-size: 11px; color: #8fa3c0; margin-top: 6px; line-height: 1.4; }
+
+#legend {
+  position: absolute; right: 12px; top: 12px; z-index: 1000;
+  min-width: 170px; padding: 10px 12px;
+  background: rgba(16, 24, 40, 0.92); color: #e6ecf5;
+  border-radius: 10px; font-size: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.45);
+}
+#legend .bar { height: 10px; border-radius: 5px; margin: 6px 0 3px; }
+#legend .ticks { display: flex; justify-content: space-between; color: #b9c6da; font-size: 11px; }
+#legend .title { font-weight: 600; }
+
+#timebar {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 1000; display: flex; align-items: center; gap: 12px;
+  width: min(680px, calc(100% - 40px)); padding: 10px 16px;
+  background: rgba(16, 24, 40, 0.92); color: #e6ecf5;
+  border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.45);
+}
+#playBtn {
+  width: 36px; height: 36px; flex: none; font-size: 15px;
+  color: #fff; background: #2563eb; border: none; border-radius: 50%; cursor: pointer;
+}
+#playBtn:hover { background: #3b82f6; }
+#timeSlider { flex: 1; accent-color: #3b82f6; }
+#timeLabel { flex: none; min-width: 150px; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+.popup-temp { font-size: 22px; font-weight: 600; }
+.aq-marker { border-radius: 50%; text-align: center; color: #10203a; font-weight: 600; }

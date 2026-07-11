@@ -1,25 +1,34 @@
-# Local AI Weather Forecasting with QGIS
+# Local Weather — an AI-powered weather app
 
-Generate real multi-day weather forecasts on your own machine with a pretrained
-AI model (FourCastNetv2-small via [ECMWF ai-models](https://github.com/ecmwf-lab/ai-models)),
-then visualize them as animated maps in QGIS.
+A Weather Channel / Windy-style weather app that runs entirely on your own
+machine: a pretrained AI model (FourCastNetv2-small via
+[ECMWF ai-models](https://github.com/ecmwf-lab/ai-models)) generates real
+multi-day forecasts on your GPU, and a local web app shows them as animated
+maps — wind particles, temperature, pressure, moisture — alongside live radar
+and air quality.
 
-![6-day 2m temperature forecast](qgis/forecast_2t.gif)
+## Features
+
+- **💨 Wind particles** — Windy-style animated particle flow from your own model's u/v fields ([leaflet-velocity](https://github.com/onaci/leaflet-velocity))
+- **🌡️ Temperature / 🌀 Pressure / 💧 Moisture maps** — colorized forecast frames animated with a time slider (up to 10 days)
+- **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
+- **😷 Air quality** — US AQI grid over the visible map from the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (free, no key)
+- **📍 Click anywhere** — current conditions popup (Open-Meteo)
+- **▶ Run new forecast** — one button in the UI triggers a fresh model run on your GPU
 
 ## Pipeline
 
 ```
 ERA5 initial state (Copernicus CDS)
   → FourCastNetv2-small inference on GPU (~2 min for 6 days on an RTX 4050)
-  → forecast GRIB (73 variables, 13 pressure levels)
-  → per-timestep GeoTIFFs (2m temp, 10m wind speed, MSL pressure)
-  → QGIS project with time-enabled layers (Temporal Controller animation)
-  → GIF export + Skew-T soundings at any point
+  → forecast GRIB (73 variables)
+  → scripts/grib_to_frames.py → PNG frames + leaflet-velocity wind JSON
+  → server.py (FastAPI) serves app/ at http://localhost:8050
 ```
 
 ## Setup
 
-1. Install [QGIS LTR](https://qgis.org) and [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+1. Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 2. `conda env create -f environment.yml`
 3. Install CUDA PyTorch: `conda run -n weather pip install torch --index-url https://download.pytorch.org/whl/cu128`
    and `conda run -n weather pip install onnxruntime-gpu`
@@ -36,15 +45,17 @@ ERA5 initial state (Copernicus CDS)
 env to pass `weights_only=False` to `torch.load` — the checkpoint comes from
 ECMWF's official asset store.
 
-## Run a forecast
+## Run
 
 ```powershell
-.\run_forecast.ps1                       # latest available ERA5, 6-day forecast
+.\run_forecast.ps1                        # generate a forecast (latest ERA5, 144h)
 .\run_forecast.ps1 -Date 20260704 -LeadTime 240
+.\start_app.ps1                           # start the app -> http://localhost:8050
 ```
 
-Open `qgis/weather_forecast.qgz`, enable a variable group, open the Temporal
-Controller, and press play.
+ERA5 lags real time by ~6 days, so the default init date is 6 days back —
+the forecast still covers today and beyond. Radar and air quality layers are
+live regardless.
 
 ## Skew-T soundings
 
@@ -52,17 +63,18 @@ Controller, and press play.
 conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib --lat 39.1 --lon -94.6 --step 24
 ```
 
-![Example Skew-T](qgis/example_skewt.png)
+## Layout
 
-## Scripts
-
-| Script | Purpose |
+| Path | Purpose |
 |---|---|
-| `check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
-| `grib_to_geotiff.py` | Forecast GRIB → time-stamped GeoTIFFs (`--var 2t\|wind\|msl\|...`) |
-| `build_qgis_project.py` | Create the base QGIS project |
-| `add_forecast_layers.py` | Load GeoTIFF series as time-enabled, styled layers |
-| `export_animation.py` | Render the series to an animated GIF |
-| `skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |
+| `app/` | Web app (Leaflet + leaflet-velocity), served by `server.py` |
+| `app/frames/` | Generated forecast frames (not committed) |
+| `server.py` | FastAPI server + run-forecast trigger API |
+| `scripts/grib_to_frames.py` | Forecast GRIB → PNG frames + wind JSON |
+| `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
+| `scripts/skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |
 
-Forecast data (GRIB/GeoTIFF) is not committed — regenerate with `run_forecast.ps1`.
+> **Note:** this project previously visualized forecasts through QGIS.
+> That pipeline was replaced by the interactive web app in this version.
+
+Forecast data (GRIB/frames) is not committed — regenerate with `run_forecast.ps1`.

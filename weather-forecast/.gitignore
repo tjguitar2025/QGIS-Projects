@@ -1,5 +1,6 @@
 data/
 assets/
+app/frames/
 *.grib
 *.grib2
 *.idx

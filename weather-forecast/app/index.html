@@ -12,6 +12,11 @@
 
 <div id="panel">
   <h1>Local Weather</h1>
+  <div class="section">Search</div>
+  <div id="searchBox">
+    <input id="cityInput" type="text" placeholder="Search a city…" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
   <div class="section">Layers</div>
   <button class="product" data-product="2t">🌡️ Temperature</button>
   <button class="product" data-product="radar">🌧️ Radar (live)</button>
@@ -27,6 +32,17 @@
 </div>
 
 <div id="legend"></div>
+
+<div id="cityForecast" hidden>
+  <div id="cityForecastHeader">
+    <div>
+      <div id="cityName"></div>
+      <div id="cityMeta"></div>
+    </div>
+    <button id="cityClose" title="Close">✕</button>
+  </div>
+  <div id="cityDays"></div>
+</div>
 
 <div id="timebar">
   <button id="playBtn">▶</button>

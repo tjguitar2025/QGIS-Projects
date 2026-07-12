@@ -17,9 +17,17 @@ const state = {
 const map = L.map("map", { zoomControl: false, minZoom: 2, worldCopyJump: true })
   .setView([39.1, -94.6], 5);
 L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+// Base without labels; labels drawn separately in a pane ABOVE the weather
+// overlays and brightened to white via CSS (see .labels-pane in style.css) —
+// keeps city names readable on top of temperature/radar layers.
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
   attribution: '&copy; OpenStreetMap &copy; CARTO | forecast: local FourCastNetv2',
   subdomains: "abcd", maxZoom: 19,
+}).addTo(map);
+map.createPane("labels").classList.add("labels-pane");
+map.getPane("labels").style.zIndex = 450;   // above overlays (400), below markers (600)
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png", {
+  subdomains: "abcd", maxZoom: 19, pane: "labels",
 }).addTo(map);
 
 /* ---------- local forecast overlays (PNG frames) ---------- */
@@ -293,6 +301,108 @@ map.on("click", async e => {
       `<span style="color:#888">${lat.toFixed(2)}, ${lng.toFixed(2)} · Open-Meteo</span>`
     );
   } catch { popup.setContent("Point data unavailable (offline?)"); }
+});
+
+/* ---------- city search + 6-day forecast card ---------- */
+const cityInput = document.getElementById("cityInput");
+const searchResults = document.getElementById("searchResults");
+const cityCard = document.getElementById("cityForecast");
+let searchTimer = null;
+let cityMarker = null;
+
+// WMO weather codes -> emoji
+function wmoIcon(code) {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "🌤️";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 57) return "🌦️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "❄️";
+  if (code <= 82) return "🌧️";
+  if (code <= 86) return "🌨️";
+  return "⛈️";
+}
+
+async function searchCities(q) {
+  const url = "https://geocoding-api.open-meteo.com/v1/search" +
+    `?name=${encodeURIComponent(q)}&count=6&language=en`;
+  const r = await (await fetch(url)).json();
+  return r.results || [];
+}
+
+function renderResults(items) {
+  searchResults.innerHTML = "";
+  items.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "search-item";
+    const sub = [c.admin1, c.country].filter(Boolean).join(", ");
+    div.innerHTML = `${c.name} <span class="sub">${sub}</span>`;
+    div.addEventListener("click", () => selectCity(c));
+    searchResults.appendChild(div);
+  });
+}
+
+async function selectCity(c) {
+  searchResults.innerHTML = "";
+  cityInput.value = c.name;
+  map.flyTo([c.latitude, c.longitude], 8, { duration: 1.2 });
+  if (cityMarker) map.removeLayer(cityMarker);
+  cityMarker = L.marker([c.latitude, c.longitude]).addTo(map);
+  await showCityForecast(c);
+}
+
+async function showCityForecast(c) {
+  const url = "https://api.open-meteo.com/v1/forecast" +
+    `?latitude=${c.latitude}&longitude=${c.longitude}` +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+    "&forecast_days=6&timezone=auto&temperature_unit=fahrenheit";
+  const r = await (await fetch(url)).json();
+  const d = r.daily;
+
+  document.getElementById("cityName").textContent = c.name;
+  document.getElementById("cityMeta").textContent =
+    [c.admin1, c.country].filter(Boolean).join(", ") +
+    ` · ${c.latitude.toFixed(2)}, ${c.longitude.toFixed(2)}`;
+
+  const days = document.getElementById("cityDays");
+  days.innerHTML = "";
+  d.time.forEach((iso, i) => {
+    const dow = i === 0 ? "Today" :
+      new Date(iso + "T12:00").toLocaleDateString("en-US", { weekday: "short" });
+    const row = document.createElement("div");
+    row.className = "city-day";
+    row.innerHTML =
+      `<span class="dow">${dow}</span>` +
+      `<span class="icon">${wmoIcon(d.weather_code[i])}</span>` +
+      `<span class="precip">${d.precipitation_probability_max[i] ?? 0}% 💧</span>` +
+      `<span class="temps"><span class="hi">${Math.round(d.temperature_2m_max[i])}°</span> / ` +
+      `<span class="lo">${Math.round(d.temperature_2m_min[i])}°</span></span>`;
+    days.appendChild(row);
+  });
+  cityCard.hidden = false;
+}
+
+cityInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const q = cityInput.value.trim();
+  if (q.length < 2) { searchResults.innerHTML = ""; return; }
+  searchTimer = setTimeout(async () => {
+    try { renderResults(await searchCities(q)); }
+    catch { searchResults.innerHTML = ""; }
+  }, 350);
+});
+cityInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    const first = searchResults.querySelector(".search-item");
+    if (first) first.click();
+  } else if (e.key === "Escape") {
+    searchResults.innerHTML = "";
+  }
+});
+document.getElementById("cityClose").addEventListener("click", () => {
+  cityCard.hidden = true;
+  if (cityMarker) { map.removeLayer(cityMarker); cityMarker = null; }
 });
 
 /* ---------- run-forecast button ---------- */

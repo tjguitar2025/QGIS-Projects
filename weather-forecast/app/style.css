@@ -55,3 +55,59 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
   padding: 4px 10px; margin-bottom: 8px; font-size: 11px;
   background: rgba(16, 24, 40, 0.85); color: #b9c6da; border-radius: 6px;
 }
+
+/* city labels pane: sits above weather overlays; brightness filter turns the
+   basemap's gray label glyphs white for readability */
+.leaflet-pane.labels-pane { pointer-events: none; }
+.leaflet-pane.labels-pane img { filter: brightness(2.4) contrast(1.1); }
+
+/* city search */
+#searchBox { position: relative; }
+#cityInput {
+  width: 100%; padding: 7px 10px; font-size: 13px;
+  color: #e6ecf5; background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10); border-radius: 7px; outline: none;
+}
+#cityInput:focus { border-color: #3b82f6; }
+#searchResults {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 1200;
+  background: #1a2438; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px; margin-top: 3px; overflow: hidden;
+  max-height: 220px; overflow-y: auto;
+}
+#searchResults:empty { display: none; }
+.search-item {
+  padding: 7px 10px; font-size: 12.5px; cursor: pointer; color: #e6ecf5;
+}
+.search-item:hover { background: #2563eb; }
+.search-item .sub { color: #8fa3c0; font-size: 11px; }
+.search-item:hover .sub { color: #cfe0ff; }
+
+/* 6-day city forecast card */
+#cityForecast {
+  position: absolute; right: 12px; top: 110px; z-index: 1000;
+  width: 300px; padding: 12px 14px;
+  background: rgba(16, 24, 40, 0.94); color: #e6ecf5;
+  border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.45);
+}
+#cityForecastHeader { display: flex; justify-content: space-between; align-items: flex-start; }
+#cityName { font-size: 15px; font-weight: 600; }
+#cityMeta { font-size: 11px; color: #8fa3c0; margin-top: 1px; }
+#cityClose {
+  flex: none; width: 24px; height: 24px; border: none; border-radius: 6px;
+  color: #8fa3c0; background: rgba(255,255,255,.08); cursor: pointer;
+}
+#cityClose:hover { background: rgba(255,255,255,.18); color: #fff; }
+#cityDays { margin-top: 8px; }
+.city-day {
+  display: grid; grid-template-columns: 44px 30px 1fr auto; gap: 8px;
+  align-items: center; padding: 5px 0; font-size: 13px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.city-day:first-child { border-top: none; }
+.city-day .dow { color: #b9c6da; }
+.city-day .icon { font-size: 17px; text-align: center; }
+.city-day .precip { color: #7cc4e8; font-size: 11.5px; }
+.city-day .temps { font-variant-numeric: tabular-nums; }
+.city-day .hi { font-weight: 600; }
+.city-day .lo { color: #8fa3c0; }

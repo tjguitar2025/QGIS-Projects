@@ -86,13 +86,17 @@ async function loadRadar() {
   state.radarIdx = meta.radar.past.length - 1;   // most recent observation
   radarLoaded = true;
 }
-function showRadarFrame(idx) {
-  radarFrames.forEach((f, i) => {
-    if (i === idx) { if (!map.hasLayer(f.layer)) f.layer.addTo(map); f.layer.setOpacity(0.75); }
-    else f.layer.setOpacity(0);
-  });
+function preloadRadar() {
+  // add every frame to the map up front (opacity 0) so all tiles fetch now
+  // and play animates smoothly instead of blanking while each frame loads
+  radarFrames.forEach(f => { if (!map.hasLayer(f.layer)) f.layer.addTo(map); });
 }
-function hideRadar() { radarFrames.forEach(f => f.layer.setOpacity(0)); }
+function showRadarFrame(idx) {
+  radarFrames.forEach((f, i) => f.layer.setOpacity(i === idx ? 0.8 : 0));
+}
+function hideRadar() {
+  radarFrames.forEach(f => { if (map.hasLayer(f.layer)) map.removeLayer(f.layer); });
+}
 
 /* ---------- Open-Meteo air quality ---------- */
 const aqGroup = L.layerGroup();
@@ -212,6 +216,7 @@ async function setProduct(product) {
   if (product === "radar") {
     map.removeLayer(scalarOverlay);
     await loadRadar();
+    preloadRadar();
     showRadarFrame(state.radarIdx);
   } else if (product === "aq") {
     map.removeLayer(scalarOverlay);
@@ -238,6 +243,10 @@ function setStep(idx) {
   updateTimeUI();
 }
 slider.addEventListener("input", e => setStep(+e.target.value));
+
+/* ---------- layer buttons ---------- */
+document.querySelectorAll("#panel .product").forEach(b =>
+  b.addEventListener("click", () => setProduct(b.dataset.product)));
 
 const playBtn = document.getElementById("playBtn");
 function stopPlay() {

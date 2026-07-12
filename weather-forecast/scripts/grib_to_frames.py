@@ -19,37 +19,60 @@ import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap
 from PIL import Image
 
-# value stops -> colors, matching the ramps used in the old QGIS project
+# Per-variable color scales. `colors` are (value_in_native_units, rgb) anchors
+# for a smooth colormap; `ticks` are the few labels shown under the legend bar
+# (evenly spaced, so they line up with a value grid).
 VARS = {
     "2t": {
-        "label": "2m temperature",
-        "units": "°C",
-        "min": 233.15, "max": 313.15,
-        "stops": [
-            (233.15, (48, 18, 227), "-40"),
-            (273.15, (240, 240, 240), "0"),
-            (313.15, (200, 30, 30), "+40"),
+        "label": "Temperature",
+        "units": "°F",
+        # -40 °F .. 120 °F in Kelvin — US TV-weather range with a freezing break
+        "min": 233.15, "max": 322.039,
+        # Weather Channel / NWS-style temperature rainbow, one anchor per 10 °F:
+        # violet (extreme cold) -> blue -> cyan -> green -> yellow -> orange ->
+        # red -> magenta (extreme heat). Cyan->green transition sits near 32 °F.
+        "colors": [
+            (233.150, (179, 157, 219)),  # -40 °F
+            (238.706, (126,  87, 194)),  # -30
+            (244.261, ( 94,  53, 177)),  # -20
+            (249.817, ( 57,  73, 171)),  # -10
+            (255.372, ( 30,  95, 208)),  #   0
+            (260.928, ( 46, 134, 224)),  #  10
+            (266.483, ( 86, 176, 232)),  #  20
+            (272.039, (143, 211, 240)),  #  30  (~freezing)
+            (277.594, (124, 201, 143)),  #  40
+            (283.150, ( 70, 180,  90)),  #  50
+            (288.706, (159, 210,  78)),  #  60
+            (294.261, (242, 225,  75)),  #  70
+            (299.817, (246, 185,  59)),  #  80
+            (305.372, (239, 125,  42)),  #  90
+            (310.928, (226,  59,  32)),  # 100
+            (316.483, (183,  28,  28)),  # 110
+            (322.039, (122,  31, 107)),  # 120
         ],
+        "ticks": ["-40°", "0°", "40°", "80°", "120°"],
     },
     "msl": {
         "label": "Sea-level pressure",
         "units": "hPa",
         "min": 95000.0, "max": 105000.0,
-        "stops": [
-            (95000.0, (120, 30, 160), "950"),
-            (100000.0, (240, 240, 240), "1000"),
-            (105000.0, (230, 140, 30), "1050"),
+        "colors": [
+            ( 95000.0, (120,  30, 160)),
+            (100000.0, (240, 240, 240)),
+            (105000.0, (230, 140,  30)),
         ],
+        "ticks": ["950", "1000", "1050"],
     },
     "tcwv": {
         "label": "Moisture (total column water vapor)",
         "units": "kg/m²",
         "min": 0.0, "max": 70.0,
-        "stops": [
-            (0.0, (255, 255, 255), "0"),
-            (35.0, (90, 180, 200), "35"),
-            (70.0, (20, 60, 150), "70"),
+        "colors": [
+            ( 0.0, (255, 255, 255)),
+            (35.0, ( 90, 180, 200)),
+            (70.0, ( 20,  60, 150)),
         ],
+        "ticks": ["0", "35", "70"],
     },
 }
 WIND_SUBSAMPLE = 4  # 0.25 deg grid -> 1 deg for leaflet-velocity
@@ -66,7 +89,7 @@ def _open_var(grib_path: Path, short_name: str) -> xr.DataArray:
 def _cmap(spec):
     lo, hi = spec["min"], spec["max"]
     anchors = [((v - lo) / (hi - lo), tuple(c / 255 for c in rgb))
-               for v, rgb, _ in spec["stops"]]
+               for v, rgb in spec["colors"]]
     return LinearSegmentedColormap.from_list("ramp", anchors)
 
 
@@ -160,10 +183,8 @@ def write_timeline(grib_path: Path, outdir: Path):
             var: {
                 "label": spec["label"],
                 "units": spec["units"],
-                "legend": [
-                    {"value": lbl, "color": f"rgb({c[0]},{c[1]},{c[2]})"}
-                    for _, c, lbl in spec["stops"]
-                ],
+                "gradient": [f"rgb({c[0]},{c[1]},{c[2]})" for _, c in spec["colors"]],
+                "ticks": spec["ticks"],
             }
             for var, spec in VARS.items()
         },

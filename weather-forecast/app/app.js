@@ -198,10 +198,10 @@ function renderLegend() {
       <div style="color:#8fa3c0;margin-top:4px">Open-Meteo (CAMS)</div>`;
   } else {
     const v = state.timeline.vars[state.product];
-    const grad = v.legend.map(s => s.color).join(",");
+    const grad = v.gradient.join(",");
     legend.innerHTML = `<div class="title">${v.label} (${v.units})</div>
       <div class="bar" style="background:linear-gradient(to right,${grad})"></div>
-      <div class="ticks">${v.legend.map(s => `<span>${s.value}</span>`).join("")}</div>
+      <div class="ticks">${v.ticks.map(t => `<span>${t}</span>`).join("")}</div>
       <div style="color:#8fa3c0;margin-top:4px">FourCastNetv2 · local GPU</div>`;
   }
 }

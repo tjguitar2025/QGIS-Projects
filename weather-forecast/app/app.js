@@ -1,7 +1,7 @@
 /* Local Weather — Windy-style viewer for FourCastNetv2 forecasts
  * Local layers:  temperature / precip / pressure / moisture PNG frames + wind particle JSON
  *                (precip: IFS open data for forecasts, ERA5 for past days)
- * Live layers:   Open-Meteo air quality
+ * Live layers:   RainViewer radar tiles, Open-Meteo air quality
  */
 "use strict";
 
@@ -9,9 +9,10 @@ const state = {
   timeline: null,      // active timeline (forecast or event)
   dataset: "forecast", // 'forecast' | 'event'
   event: null,         // active event object from events.json
-  product: "2t",       // '2t' | 'tp' | 'msl' | 'tcwv' | 'aq'
+  product: "2t",       // '2t' | 'tp' | 'msl' | 'tcwv' | 'radar' | 'aq'
   windOn: true,
   stepIdx: 0,          // forecast step index
+  radarIdx: 0,
   playing: false,
   playTimer: null,
 };
@@ -86,6 +87,35 @@ async function updateWind() {
   }
 }
 
+/* ---------- RainViewer live radar ---------- */
+let radarFrames = [];             // [{time, layer}]
+let radarLoaded = false;
+
+async function loadRadar() {
+  if (radarLoaded) return;
+  const meta = await (await fetch("https://api.rainviewer.com/public/weather-maps.json")).json();
+  const frames = [...meta.radar.past, ...meta.radar.nowcast];
+  radarFrames = frames.map(f => ({
+    time: f.time,
+    nowcast: meta.radar.nowcast.includes(f),
+    layer: L.tileLayer(`${meta.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,
+      { opacity: 0, tileSize: 256, zIndex: 400 }),
+  }));
+  state.radarIdx = meta.radar.past.length - 1;   // most recent observation
+  radarLoaded = true;
+}
+function preloadRadar() {
+  // add every frame to the map up front (opacity 0) so all tiles fetch now
+  // and play animates smoothly instead of blanking while each frame loads
+  radarFrames.forEach(f => { if (!map.hasLayer(f.layer)) f.layer.addTo(map); });
+}
+function showRadarFrame(idx) {
+  radarFrames.forEach((f, i) => f.layer.setOpacity(i === idx ? 0.8 : 0));
+}
+function hideRadar() {
+  radarFrames.forEach(f => { if (map.hasLayer(f.layer)) map.removeLayer(f.layer); });
+}
+
 /* ---------- Open-Meteo air quality ---------- */
 const aqGroup = L.layerGroup();
 let aqTimer = null;
@@ -154,7 +184,14 @@ function renderScalar() {
 }
 
 function updateTimeUI() {
-  if (state.product === "aq") {
+  if (state.product === "radar") {
+    slider.max = Math.max(radarFrames.length - 1, 0);
+    slider.value = state.radarIdx;
+    slider.disabled = false;
+    const f = radarFrames[state.radarIdx];
+    if (f) timeLabel.textContent =
+      (f.nowcast ? "nowcast " : "radar ") + fmtValid(new Date(f.time * 1000).toISOString().slice(0, 16));
+  } else if (state.product === "aq") {
     slider.disabled = true;
     timeLabel.textContent = "current conditions";
   } else {
@@ -167,7 +204,12 @@ function updateTimeUI() {
 }
 
 function renderLegend() {
-  if (state.product === "aq") {
+  if (state.product === "radar") {
+    legend.innerHTML = `<div class="title">Radar reflectivity</div>
+      <div class="bar" style="background:linear-gradient(to right,#88f,#0f0,#ff0,#f80,#f00,#f0f)"></div>
+      <div class="ticks"><span>light</span><span>heavy</span></div>
+      <div style="color:#8fa3c0;margin-top:4px">RainViewer · past 2h + nowcast</div>`;
+  } else if (state.product === "aq") {
     legend.innerHTML = `<div class="title">US Air Quality Index</div>
       <div class="bar" style="background:linear-gradient(to right,#4ade80,#facc15,#fb923c,#ef4444,#a855f7)"></div>
       <div class="ticks"><span>0</span><span>150</span><span>300+</span></div>
@@ -184,11 +226,11 @@ function renderLegend() {
   }
 }
 
-// which products the current dataset supports: AQ is live-only, scalar layers
-// only exist if the active timeline rendered them (forecast precip comes from
-// IFS open data, so an old run without a tp fetch simply lacks the layer)
+// which products the current dataset supports: radar/AQ are live-only, scalar
+// layers only exist if the active timeline rendered them (forecast precip
+// comes from IFS open data, so an old run without a tp fetch lacks the layer)
 function productAvailable(p) {
-  if (p === "aq") return state.dataset === "forecast";
+  if (p === "radar" || p === "aq") return state.dataset === "forecast";
   return !!(state.timeline && state.timeline.vars[p]);
 }
 function updateProductButtons() {
@@ -204,8 +246,13 @@ async function setProduct(product) {
     b.classList.toggle("active", b.dataset.product === product));
   stopPlay();
 
-  map.removeLayer(aqGroup);
-  if (product === "aq") {
+  map.removeLayer(aqGroup); hideRadar();
+  if (product === "radar") {
+    map.removeLayer(scalarOverlay);
+    await loadRadar();
+    preloadRadar();
+    showRadarFrame(state.radarIdx);
+  } else if (product === "aq") {
     map.removeLayer(scalarOverlay);
     aqGroup.addTo(map);
     await refreshAQ();
@@ -219,9 +266,14 @@ async function setProduct(product) {
 
 /* ---------- time control ---------- */
 function setStep(idx) {
-  state.stepIdx = idx;
-  renderScalar();
-  updateWind();
+  if (state.product === "radar") {
+    state.radarIdx = idx;
+    showRadarFrame(idx);
+  } else {
+    state.stepIdx = idx;
+    renderScalar();
+    updateWind();
+  }
   updateTimeUI();
 }
 slider.addEventListener("input", e => setStep(+e.target.value));
@@ -242,7 +294,7 @@ playBtn.addEventListener("click", () => {
   state.playTimer = setInterval(() => {
     const n = +slider.max + 1;
     setStep((+slider.value + 1) % n);
-  }, 700);
+  }, state.product === "radar" ? 450 : 700);
 });
 
 /* ---------- wind toggle ---------- */
@@ -613,7 +665,7 @@ async function pollRun() {
       "No forecast frames yet — click “Run new forecast” or run run_forecast.ps1.";
     loadEventCatalog();
     updateProductButtons();
-    setProduct("aq");
+    setProduct("radar");
     pollRun();
     return;
   }
@@ -624,7 +676,7 @@ async function pollRun() {
   loadEventCatalog();
   updateProductButtons();
   const want = decodeURIComponent(location.hash.slice(1));
-  await setProduct(["2t", "tp", "msl", "tcwv", "aq"].includes(want) ? want : "2t");
+  await setProduct(["2t", "tp", "msl", "tcwv", "radar", "aq"].includes(want) ? want : "2t");
   updateWind();
   pollRun();
 })();

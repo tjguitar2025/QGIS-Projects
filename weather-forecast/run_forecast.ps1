@@ -24,15 +24,37 @@ Write-Host "=== 1/2 FourCastNetv2 forecast: init $Date 00z ($Source), +$LeadTime
     --assets "$Base\assets" --path $Grib fourcastnetv2-small
 if ($LASTEXITCODE -ne 0) { throw "ai-models failed" }
 
-Write-Host "=== 2/2 Rendering app frames ===" -ForegroundColor Cyan
+Write-Host "=== 2/3 Fetching IFS precipitation (ECMWF open data) ===" -ForegroundColor Cyan
+# FourCastNetv2 has no precip output; the precip layer uses the IFS forecast
+# of the same cycle. Non-fatal: everything else works without it.
+$TpGrib = "$Base\data\forecasts\tp_$Date.grib"
+$HasTp = $false
+if ($Source -eq "opendata") {
+    & $Conda run -n weather python "$Base\scripts\fetch_opendata_tp.py" --date $Date --lead-time $LeadTime --out $TpGrib
+    if ($LASTEXITCODE -eq 0) { $HasTp = $true }
+    else { Write-Warning "IFS tp fetch failed - skipping the precipitation layer" }
+}
+
+Write-Host "=== 3/3 Rendering app frames ===" -ForegroundColor Cyan
 # clear the previous run's frames so the app timeline matches this forecast
-Remove-Item "$Base\app\frames\*" -Recurse -Force -ErrorAction SilentlyContinue
+foreach ($try in 1..5) {
+    Remove-Item "$Base\app\frames" -Recurse -Force -ErrorAction SilentlyContinue
+    if (-not (Test-Path "$Base\app\frames")) { break }
+    Start-Sleep -Seconds 2
+}
+New-Item -ItemType Directory -Force "$Base\app\frames" | Out-Null
 # one process per variable keeps ecCodes/cfgrib memory bounded on big GRIBs
 foreach ($var in "2t", "msl", "tcwv", "wind") {
     & $Conda run -n weather python $Frames $Grib --var $var
     if ($LASTEXITCODE -ne 0) { throw "frame rendering of $var failed" }
 }
-& $Conda run -n weather python $Frames $Grib --timeline
+$TimelineVars = "2t,msl,tcwv"
+if ($HasTp) {
+    & $Conda run -n weather python $Frames $TpGrib --var tp
+    if ($LASTEXITCODE -ne 0) { throw "frame rendering of tp failed" }
+    $TimelineVars = "2t,msl,tcwv,tp"
+}
+& $Conda run -n weather python $Frames $Grib --timeline --vars $TimelineVars
 if ($LASTEXITCODE -ne 0) { throw "timeline generation failed" }
 
 Write-Host "Done. Start the app with .\start_app.ps1 (http://localhost:8050)" -ForegroundColor Green

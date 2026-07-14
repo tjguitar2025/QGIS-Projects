@@ -76,6 +76,7 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
 }
 #panel button.product:disabled { opacity: .35; cursor: not-allowed; }
 
+#eventBanner[hidden] { display: none; }  /* explicit display would override [hidden] */
 #eventBanner {
   position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
   z-index: 1000; display: flex; align-items: center; gap: 14px;

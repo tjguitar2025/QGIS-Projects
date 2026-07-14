@@ -104,6 +104,23 @@ VARS = {
 WIND_SUBSAMPLE = 4  # 0.25 deg grid -> 1 deg for leaflet-velocity
 
 
+def _var_spec(var: str, analysis: bool) -> dict:
+    """Per-mode variable spec. tp differs: reanalysis days are 1h amounts,
+    forecasts (IFS open data) are differenced into 6h amounts, so the
+    forecast variant stretches the same ramp over a 0..64 mm range."""
+    spec = VARS[var]
+    if var == "tp" and not analysis:
+        return {
+            **spec,
+            "label": "Precipitation (6h)",
+            "max": 64.0,
+            "colors": [(v * 4, c) for v, c in spec["colors"]],
+            "ticks": ["0", "4", "16", "36", "64"],
+            "alpha_ramp": (0.2, 2.0, 230),
+        }
+    return spec
+
+
 def _open_var(grib_path: Path, short_name: str) -> xr.DataArray:
     ds = xr.open_dataset(
         grib_path, engine="cfgrib",
@@ -175,15 +192,19 @@ def _iter_frames(da: xr.DataArray, analysis: bool):
 
 def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dict,
                         analysis: bool = False):
-    spec = VARS[var]
+    spec = _var_spec(var, analysis)
     da = _shift_to_180(_open_var(grib_path, var))
     cmap = _cmap(spec)
     vardir = outdir / var
     vardir.mkdir(parents=True, exist_ok=True)
 
     count = 0
+    prev = None
     for hours, frame in _iter_frames(da, analysis):
         vals = np.nan_to_num(_north_up(frame)) * spec.get("factor", 1.0)
+        if var == "tp" and not analysis:
+            # forecast tp accumulates from init; difference into per-step amounts
+            vals, prev = (vals - prev if prev is not None else vals), vals
         norm = np.clip((vals - spec["min"]) / (spec["max"] - spec["min"]), 0, 1)
         if spec.get("scale") == "sqrt":
             norm = np.sqrt(norm)
@@ -257,6 +278,7 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
             var: {
                 "label": spec["label"],
                 "units": spec["units"],
+                # (spec comes from _var_spec so tp gets its per-mode variant)
                 # CSS gradient stops at each anchor's true scale position
                 "gradient": [
                     f"rgb({c[0]},{c[1]},{c[2]}) {_anchor_pos(spec, v) * 100:.0f}%"
@@ -264,7 +286,7 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
                 ],
                 "ticks": spec["ticks"],
             }
-            for var, spec in ((v, VARS[v]) for v in var_list)
+            for var, spec in ((v, _var_spec(v, analysis)) for v in var_list)
         },
     }
     with open(outdir / "timeline.json", "w") as f:

@@ -11,7 +11,8 @@ and air quality.
 
 - **💨 Wind particles** — Windy-style animated particle flow from your own model's u/v fields ([leaflet-velocity](https://github.com/onaci/leaflet-velocity))
 - **🌡️ Temperature / 🌀 Pressure / 💧 Moisture maps** — colorized forecast frames animated with a time slider (up to 10 days)
-- **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
+- **🌧️ Precipitation maps** — radar-style animated rain maps: IFS forecast precipitation
+  (ECMWF open data, 6h amounts) alongside the model run, ERA5 1h amounts for past days
 - **😷 Air quality** — US AQI grid over the visible map from the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (free, no key)
 - **📍 Click anywhere** — current conditions popup (Open-Meteo)
 - **🔎 City search** — geocode any world city, fly to it, and get its 6-day daily forecast
@@ -83,6 +84,7 @@ conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib 
 | `load_event.ps1` | Fetch ERA5 for an event's date range and render its frames |
 | `load_day.ps1` | Fetch hourly ERA5 for one past day (temp + precip + wind) |
 | `scripts/fetch_era5_event.py` | Download an ERA5 reanalysis sequence from CDS |
+| `scripts/fetch_opendata_tp.py` | Download IFS precipitation forecast (ECMWF open data) |
 | `scripts/grib_to_frames.py` | Forecast or reanalysis GRIB → PNG frames + wind JSON |
 | `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
 | `scripts/skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |

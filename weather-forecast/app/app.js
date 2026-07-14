@@ -334,6 +334,7 @@ const searchResults = document.getElementById("searchResults");
 const cityCard = document.getElementById("cityForecast");
 let searchTimer = null;
 let cityMarker = null;
+let lastCity = null;   // so the card can refresh when entering/exiting a past day
 
 // WMO weather codes -> emoji
 function wmoIcon(code) {
@@ -371,10 +372,53 @@ function renderResults(items) {
 async function selectCity(c) {
   searchResults.innerHTML = "";
   cityInput.value = c.name;
+  lastCity = c;
   map.flyTo([c.latitude, c.longitude], 8, { duration: 1.2 });
   if (cityMarker) map.removeLayer(cityMarker);
   cityMarker = L.marker([c.latitude, c.longitude]).addTo(map);
-  await showCityForecast(c);
+  // while studying a past day, the card shows that day at this city instead
+  // of the upcoming 6-day forecast
+  if (state.dataset === "event" && state.event?.day) {
+    await showCityDayRundown(c, state.event.start);
+  } else {
+    await showCityForecast(c);
+  }
+}
+
+/* rundown of the studied past day at a city — Open-Meteo historical archive
+   (same ERA5 reanalysis the map layers come from; free, no key) */
+async function showCityDayRundown(c, dateStr) {
+  const url = "https://archive-api.open-meteo.com/v1/archive" +
+    `?latitude=${c.latitude}&longitude=${c.longitude}` +
+    `&start_date=${dateStr}&end_date=${dateStr}` +
+    "&hourly=temperature_2m,precipitation,weather_code" +
+    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum" +
+    "&temperature_unit=fahrenheit&timezone=auto";
+  const r = await (await fetch(url)).json();
+  const d = r.daily, h = r.hourly;
+
+  document.getElementById("cityName").textContent = c.name;
+  document.getElementById("cityMeta").textContent =
+    [c.admin1, c.country].filter(Boolean).join(", ") +
+    ` · ${state.event.name} (local time)`;
+
+  const total = d.precipitation_sum[0] ?? 0;
+  let html =
+    `<div class="city-day-summary">High <b>${Math.round(d.temperature_2m_max[0])}°</b> · ` +
+    `Low <b>${Math.round(d.temperature_2m_min[0])}°</b> · 💧 ${total.toFixed(1)} mm total</div>`;
+  for (let i = 0; i < h.time.length && i < 24; i += 3) {
+    const hourLabel = new Date(h.time[i]).toLocaleTimeString("en-US", { hour: "numeric" });
+    const p3 = h.precipitation.slice(i, i + 3).reduce((a, b) => a + (b ?? 0), 0);
+    html +=
+      `<div class="city-day">` +
+      `<span class="dow">${hourLabel}</span>` +
+      `<span class="icon">${wmoIcon(h.weather_code[i])}</span>` +
+      `<span class="precip">${p3 > 0 ? p3.toFixed(1) + " mm 💧" : ""}</span>` +
+      `<span class="temps"><span class="hi">${Math.round(h.temperature_2m[i])}°</span></span>` +
+      `</div>`;
+  }
+  document.getElementById("cityDays").innerHTML = html;
+  cityCard.hidden = false;
 }
 
 async function showCityForecast(c) {
@@ -468,6 +512,8 @@ async function enterEventMode(ev) {
   if (ev.lat != null) map.flyTo([ev.lat, ev.lon], ev.zoom || 5, { duration: 1.5 });
   await setProduct(ev.watch || "2t");
   updateWind();
+  // an open city card switches to this day's rundown for that city
+  if (ev.day && !cityCard.hidden && lastCity) showCityDayRundown(lastCity, ev.start);
 }
 
 function exitEventMode() {
@@ -479,6 +525,8 @@ function exitEventMode() {
   eventBanner.hidden = true;
   setProduct("2t");
   updateWind();
+  // an open city card goes back to the normal 6-day forecast
+  if (!cityCard.hidden && lastCity) showCityForecast(lastCity);
 }
 
 loadEventBtn.addEventListener("click", async () => {

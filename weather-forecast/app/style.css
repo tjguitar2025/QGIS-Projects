@@ -130,6 +130,11 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
 }
 #cityClose:hover { background: rgba(255,255,255,.18); color: #fff; }
 #cityDays { margin-top: 8px; }
+.city-day-summary {
+  padding: 4px 0 7px; font-size: 13px; color: #b9c6da;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.city-day-summary b { color: #e6ecf5; }
 .city-day {
   display: grid; grid-template-columns: 44px 30px 1fr auto; gap: 8px;
   align-items: center; padding: 5px 0; font-size: 13px;

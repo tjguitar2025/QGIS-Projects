@@ -43,7 +43,9 @@ const frameCache = {};            // url -> Image (preload)
 
 function frameUrl(product, idx) {
   const h = String(state.timeline.steps[idx]).padStart(3, "0");
-  return `${framesBase()}/${product}/${product}_+${h}h.png`;
+  // ?v= busts stale browser cache: event/day loads reuse the same file names
+  // in frames_event/ but hold different data each time
+  return `${framesBase()}/${product}/${product}_+${h}h.png?v=${encodeURIComponent(state.timeline.init_time)}`;
 }
 function preloadFrames(product) {
   state.timeline.steps.forEach((_, i) => {
@@ -58,7 +60,7 @@ const windCache = {};
 
 async function windData(idx) {
   const h = String(state.timeline.steps[idx]).padStart(3, "0");
-  const url = `${framesBase()}/wind/wind_+${h}h.json`;
+  const url = `${framesBase()}/wind/wind_+${h}h.json?v=${encodeURIComponent(state.timeline.init_time)}`;
   if (!windCache[url]) windCache[url] = await (await fetch(url)).json();
   return windCache[url];
 }
@@ -214,16 +216,30 @@ function renderLegend() {
   } else {
     const v = state.timeline.vars[state.product];
     const grad = v.gradient.join(",");
+    const src = state.dataset === "event"
+      ? "ERA5 reanalysis · ECMWF/Copernicus" : "FourCastNetv2 · local GPU";
     legend.innerHTML = `<div class="title">${v.label} (${v.units})</div>
       <div class="bar" style="background:linear-gradient(to right,${grad})"></div>
       <div class="ticks">${v.ticks.map(t => `<span>${t}</span>`).join("")}</div>
-      <div style="color:#8fa3c0;margin-top:4px">FourCastNetv2 · local GPU</div>`;
+      <div style="color:#8fa3c0;margin-top:4px">${src}</div>`;
   }
 }
 
+// which products the current dataset supports: radar/AQ are live-only, scalar
+// layers only exist if the active timeline rendered them (e.g. precipitation
+// exists only for ERA5 past-day loads — the forecast model has no precip)
+function productAvailable(p) {
+  if (p === "radar" || p === "aq") return state.dataset === "forecast";
+  return !!(state.timeline && state.timeline.vars[p]);
+}
+function updateProductButtons() {
+  document.querySelectorAll("#panel .product").forEach(b => {
+    b.disabled = !productAvailable(b.dataset.product);
+  });
+}
+
 async function setProduct(product) {
-  // radar and air quality are live-only — unavailable while studying history
-  if (state.dataset === "event" && (product === "radar" || product === "aq")) return;
+  if (!productAvailable(product)) return;
   state.product = product;
   document.querySelectorAll("#panel .product").forEach(b =>
     b.classList.toggle("active", b.dataset.product === product));
@@ -434,14 +450,6 @@ async function loadEventCatalog() {
   } catch { eventStatus.textContent = "Event catalog unavailable."; }
 }
 
-function setLiveLayersEnabled(enabled) {
-  document.querySelectorAll("#panel .product").forEach(b => {
-    if (b.dataset.product === "radar" || b.dataset.product === "aq") {
-      b.disabled = !enabled;
-    }
-  });
-}
-
 async function enterEventMode(ev) {
   const timeline = await (await fetch(`frames_event/timeline.json?t=${Date.now()}`)).json();
   if (!forecastTimeline) forecastTimeline = state.timeline;
@@ -449,14 +457,15 @@ async function enterEventMode(ev) {
   state.dataset = "event";
   state.event = ev;
   state.stepIdx = 0;
-  setLiveLayersEnabled(false);
+  updateProductButtons();
 
-  document.getElementById("eventTitle").textContent =
-    `${ev.name} — ${ev.start} to ${ev.end} (ERA5 reanalysis)`;
+  document.getElementById("eventTitle").textContent = ev.day
+    ? `${ev.name} — hourly ERA5 reanalysis`
+    : `${ev.name} — ${ev.start} to ${ev.end} (ERA5 reanalysis)`;
   document.getElementById("eventDesc").textContent = ev.description;
   eventBanner.hidden = false;
 
-  map.flyTo([ev.lat, ev.lon], ev.zoom || 5, { duration: 1.5 });
+  if (ev.lat != null) map.flyTo([ev.lat, ev.lon], ev.zoom || 5, { duration: 1.5 });
   await setProduct(ev.watch || "2t");
   updateWind();
 }
@@ -466,7 +475,7 @@ function exitEventMode() {
   state.event = null;
   state.stepIdx = 0;
   if (forecastTimeline) state.timeline = forecastTimeline;
-  setLiveLayersEnabled(true);
+  updateProductButtons();
   eventBanner.hidden = true;
   setProduct("2t");
   updateWind();
@@ -488,7 +497,7 @@ loadEventBtn.addEventListener("click", async () => {
     }
   } catch { /* nothing loaded yet */ }
 
-  loadEventBtn.disabled = true;
+  setHistoryButtons(false);
   eventStatus.textContent = "Requesting ERA5 reanalysis… (first load of an event can take several minutes)";
   try {
     await fetch("/api/load-event", {
@@ -499,9 +508,14 @@ loadEventBtn.addEventListener("click", async () => {
     await pollEventLoad(ev);
   } catch {
     eventStatus.textContent = "Failed to reach the server.";
-    loadEventBtn.disabled = false;
+    setHistoryButtons(true);
   }
 });
+
+function setHistoryButtons(enabled) {
+  loadEventBtn.disabled = !enabled;
+  loadDayBtn.disabled = !enabled;
+}
 
 async function pollEventLoad(ev) {
   const r = await (await fetch("/api/event-status")).json();
@@ -510,16 +524,65 @@ async function pollEventLoad(ev) {
     setTimeout(() => pollEventLoad(ev), 4000);
   } else if (r.state === "done") {
     eventStatus.textContent = "";
-    loadEventBtn.disabled = false;
+    setHistoryButtons(true);
     loadedEventId = ev.id;
     await enterEventMode(ev);
   } else {
-    eventStatus.textContent = "Event load failed — see data\\load_event.log";
-    loadEventBtn.disabled = false;
+    eventStatus.textContent = "Load failed — see data\\load_event.log";
+    setHistoryButtons(true);
   }
 }
 
 document.getElementById("exitEvent").addEventListener("click", exitEventMode);
+
+/* ---------- study any past day (hourly ERA5 reanalysis) ---------- */
+const dayInput = document.getElementById("dayInput");
+const loadDayBtn = document.getElementById("loadDay");
+// ERA5 lags real time by roughly 6 days
+dayInput.max = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+
+function dayEvent(dateStr) {
+  const nice = new Date(dateStr + "T12:00Z").toLocaleDateString("en-US",
+    { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+  return {
+    id: `day-${dateStr}`, name: nice, start: dateStr, end: dateStr,
+    day: true, watch: "2t",
+    description: "Temperature, precipitation and wind for this day, hour by hour.",
+  };
+}
+
+loadDayBtn.addEventListener("click", async () => {
+  const dateStr = dayInput.value;
+  if (!dateStr) { eventStatus.textContent = "Pick a date first."; return; }
+  const ev = dayEvent(dateStr);
+  if (loadedEventId === ev.id) { await enterEventMode(ev); return; }
+
+  // day frames from a previous session may already be on disk — a day
+  // timeline is recognizable by starting on that date and including precip
+  try {
+    const t = await (await fetch(`frames_event/timeline.json?t=${Date.now()}`)).json();
+    if (t.init_time && t.init_time.startsWith(dateStr) && t.vars.tp) {
+      loadedEventId = ev.id;
+      await enterEventMode(ev);
+      return;
+    }
+  } catch { /* nothing loaded yet */ }
+
+  setHistoryButtons(false);
+  eventStatus.textContent = "Requesting hourly ERA5 for that day… (first load can take several minutes)";
+  try {
+    const r = await fetch("/api/load-day", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateStr }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || "Request rejected.");
+    await pollEventLoad(ev);
+  } catch (err) {
+    eventStatus.textContent = err.message || "Failed to reach the server.";
+    setHistoryButtons(true);
+  }
+});
 
 /* ---------- run-forecast button ---------- */
 const runBtn = document.getElementById("runForecast");
@@ -550,6 +613,7 @@ async function pollRun() {
     document.getElementById("initInfo").textContent =
       "No forecast frames yet — click “Run new forecast” or run run_forecast.ps1.";
     loadEventCatalog();
+    updateProductButtons();
     setProduct("radar");
     pollRun();
     return;
@@ -559,6 +623,7 @@ async function pollRun() {
   windBtn.classList.toggle("active", state.windOn);
   forecastTimeline = state.timeline;
   loadEventCatalog();
+  updateProductButtons();
   const want = decodeURIComponent(location.hash.slice(1));
   await setProduct(["2t", "msl", "tcwv", "radar", "aq"].includes(want) ? want : "2t");
   updateWind();

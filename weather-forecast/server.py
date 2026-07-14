@@ -8,6 +8,7 @@ forecast run via the existing run_forecast.ps1 pipeline.
 import re
 import subprocess
 import threading
+from datetime import date, timedelta
 from pathlib import Path
 
 import uvicorn
@@ -81,6 +82,35 @@ def load_event(payload: dict):
         event_run["state"] = "done" if proc.returncode == 0 else "failed"
 
     threading.Thread(target=_watch_event, args=(event_run["proc"],), daemon=True).start()
+    return {"state": "running"}
+
+
+@app.post("/api/load-day")
+def load_day(payload: dict):
+    """Load one past day (hourly ERA5: temperature + precipitation + wind)."""
+    day = payload.get("date", "")
+    if not DATE_RE.match(day):
+        raise HTTPException(400, "date must be YYYY-MM-DD")
+    d = date.fromisoformat(day)
+    if d < date(1940, 1, 1) or d > date.today() - timedelta(days=6):
+        raise HTTPException(400, "ERA5 covers 1940 up to ~6 days ago")
+    # shares event_run: day frames and event frames both live in frames_event/
+    if event_run["proc"] and event_run["proc"].poll() is None:
+        return {"state": "running"}
+    EVENT_LOG.parent.mkdir(exist_ok=True)
+    logf = open(EVENT_LOG, "w")
+    event_run["proc"] = subprocess.Popen(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+         "-File", str(BASE / "load_day.ps1"), "-Date", day],
+        stdout=logf, stderr=subprocess.STDOUT, cwd=BASE,
+    )
+    event_run["state"] = "running"
+
+    def _watch_day(proc):
+        proc.wait()
+        event_run["state"] = "done" if proc.returncode == 0 else "failed"
+
+    threading.Thread(target=_watch_day, args=(event_run["proc"],), daemon=True).start()
     return {"state": "running"}
 
 

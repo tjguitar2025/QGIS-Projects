@@ -68,6 +68,12 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
   border: 1px solid rgba(255,255,255,.10); border-radius: 7px; outline: none;
 }
 #eventStatus { font-size: 11px; color: #8fa3c0; margin-top: 4px; line-height: 1.4; }
+#dayInput {
+  width: 100%; margin: 4px 0; padding: 6px 8px; font-size: 13px;
+  color: #e6ecf5; background: #1a2438; color-scheme: dark;
+  border: 1px solid rgba(255,255,255,.10); border-radius: 7px; outline: none;
+  font-family: inherit;
+}
 #panel button.product:disabled { opacity: .35; cursor: not-allowed; }
 
 #eventBanner {

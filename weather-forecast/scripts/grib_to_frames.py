@@ -74,6 +74,32 @@ VARS = {
         ],
         "ticks": ["0", "35", "70"],
     },
+    "tp": {
+        # ERA5 hourly total precipitation: metres accumulated over the hour up
+        # to the analysis time -> mm/h after x1000. Radar-style ramp, sqrt
+        # scale so light rain gets most of the color range, transparent where
+        # dry. Only available in --analysis (ERA5) datasets — FourCastNetv2
+        # does not output precipitation.
+        "label": "Precipitation (1h)",
+        "units": "mm",
+        "min": 0.0, "max": 16.0,
+        "factor": 1000.0,          # m -> mm
+        "scale": "sqrt",
+        "alpha_ramp": (0.05, 0.5, 230),   # fade in between 0.05 and 0.5 mm
+        "colors": [
+            ( 0.0, (110, 170, 240)),
+            ( 0.5, ( 80, 160, 245)),
+            ( 1.0, ( 60, 150, 235)),
+            ( 2.5, ( 60, 200, 130)),
+            ( 4.0, (150, 215,  80)),
+            ( 6.5, (240, 220,  70)),
+            ( 9.0, (245, 160,  50)),
+            (12.0, (235,  85,  45)),
+            (16.0, (190,  30, 100)),
+        ],
+        # legend positions follow the sqrt scale: 0,1,4,9,16 are evenly spaced
+        "ticks": ["0", "1", "4", "9", "16"],
+    },
 }
 WIND_SUBSAMPLE = 4  # 0.25 deg grid -> 1 deg for leaflet-velocity
 
@@ -86,9 +112,14 @@ def _open_var(grib_path: Path, short_name: str) -> xr.DataArray:
     return ds[list(ds.data_vars)[0]]
 
 
+def _anchor_pos(spec, value):
+    """Normalized 0..1 position of a value on the (possibly sqrt) color scale."""
+    p = (value - spec["min"]) / (spec["max"] - spec["min"])
+    return p ** 0.5 if spec.get("scale") == "sqrt" else p
+
+
 def _cmap(spec):
-    lo, hi = spec["min"], spec["max"]
-    anchors = [((v - lo) / (hi - lo), tuple(c / 255 for c in rgb))
+    anchors = [(_anchor_pos(spec, v), tuple(c / 255 for c in rgb))
                for v, rgb in spec["colors"]]
     return LinearSegmentedColormap.from_list("ramp", anchors)
 
@@ -117,6 +148,21 @@ def _iter_frames(da: xr.DataArray, analysis: bool):
     analysis times — hours are counted from the first one.
     """
     if analysis:
+        if "step" in da.dims:
+            # accumulated ERA5 vars (tp) come as forecast runs x hourly steps;
+            # only the requested validity hours hold data — the rest of the
+            # time x step hypercube is NaN padding. Flatten by valid time.
+            frames = []
+            for t in da.time.values:
+                for s in da.step.values:
+                    f = da.sel(time=t, step=s)
+                    if np.isfinite(f.values).any():
+                        frames.append((f.valid_time.values, f))
+            frames.sort(key=lambda x: x[0])
+            t0 = frames[0][0]
+            for vt, f in frames:
+                yield int((vt - t0) / np.timedelta64(1, "h")), f
+            return
         times = da.time.values
         t0 = times[0]
         for t in times:
@@ -137,8 +183,14 @@ def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dic
 
     count = 0
     for hours, frame in _iter_frames(da, analysis):
-        norm = np.clip((_north_up(frame) - spec["min"]) / (spec["max"] - spec["min"]), 0, 1)
+        vals = np.nan_to_num(_north_up(frame)) * spec.get("factor", 1.0)
+        norm = np.clip((vals - spec["min"]) / (spec["max"] - spec["min"]), 0, 1)
+        if spec.get("scale") == "sqrt":
+            norm = np.sqrt(norm)
         rgba = (cmap(norm) * 255).astype(np.uint8)
+        if "alpha_ramp" in spec:  # transparent where (nearly) zero, e.g. no rain
+            v0, v1, amax = spec["alpha_ramp"]
+            rgba[..., 3] = (np.clip((vals - v0) / (v1 - v0), 0, 1) * amax).astype(np.uint8)
         Image.fromarray(rgba, "RGBA").save(vardir / f"{var}_+{hours:03d}h.png", optimize=True)
         steps_meta.setdefault(hours, np.datetime_as_string(frame.valid_time.values, unit="m"))
         count += 1
@@ -186,7 +238,8 @@ def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict,
     print(f"wind: {count} JSON frames")
 
 
-def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False):
+def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
+                   var_list: list | None = None):
     da = _open_var(grib_path, "2t")
     steps_meta = {
         h: np.datetime_as_string(frame.valid_time.values, unit="m")
@@ -194,6 +247,7 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False):
     }
     hours = sorted(steps_meta)
     t0 = da.time.values[0] if analysis else da.time.values
+    var_list = var_list or ["2t", "msl", "tcwv"]
     timeline = {
         "init_time": np.datetime_as_string(t0, unit="m"),
         "steps": hours,
@@ -203,10 +257,14 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False):
             var: {
                 "label": spec["label"],
                 "units": spec["units"],
-                "gradient": [f"rgb({c[0]},{c[1]},{c[2]})" for _, c in spec["colors"]],
+                # CSS gradient stops at each anchor's true scale position
+                "gradient": [
+                    f"rgb({c[0]},{c[1]},{c[2]}) {_anchor_pos(spec, v) * 100:.0f}%"
+                    for v, c in spec["colors"]
+                ],
                 "ticks": spec["ticks"],
             }
-            for var, spec in VARS.items()
+            for var, spec in ((v, VARS[v]) for v in var_list)
         },
     }
     with open(outdir / "timeline.json", "w") as f:
@@ -219,6 +277,8 @@ def main():
     p.add_argument("grib", type=Path)
     p.add_argument("--var", choices=[*VARS, "wind"])
     p.add_argument("--timeline", action="store_true")
+    p.add_argument("--vars", help="comma list of vars to describe in timeline.json "
+                                  "(default: 2t,msl,tcwv)")
     p.add_argument("--analysis", action="store_true",
                    help="input is a reanalysis time sequence (ERA5 event), not a forecast")
     p.add_argument("--outdir", type=Path,
@@ -226,7 +286,8 @@ def main():
     args = p.parse_args()
 
     if args.timeline:
-        write_timeline(args.grib, args.outdir, analysis=args.analysis)
+        var_list = [v.strip() for v in args.vars.split(",")] if args.vars else None
+        write_timeline(args.grib, args.outdir, analysis=args.analysis, var_list=var_list)
     elif args.var == "wind":
         write_wind_frames(args.grib, args.outdir, {}, analysis=args.analysis)
     elif args.var:

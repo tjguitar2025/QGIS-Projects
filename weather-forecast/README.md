@@ -18,6 +18,8 @@ and air quality.
 - **📼 Study historical events** — pick a disaster (Hurricane Katrina, the 2008 Afghanistan
   blizzard, Typhoon Haiyan, …) and replay the actual atmosphere from ERA5 reanalysis:
   watch the pressure core deepen, moisture feed in, and the wind field spin up, step by step
+- **🗓️ Study any past day** — pick any date from 1940 to ~6 days ago and replay it hour by
+  hour: temperature, precipitation (ERA5 1-hour accumulations, radar-style colors) and wind
 - **▶ Run new forecast** — one button in the UI triggers a fresh model run on your GPU
 
 ## Pipeline
@@ -79,6 +81,7 @@ conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib 
 | `app/events.json` | Curated catalog of historical weather disasters |
 | `server.py` | FastAPI server + run-forecast / load-event trigger APIs |
 | `load_event.ps1` | Fetch ERA5 for an event's date range and render its frames |
+| `load_day.ps1` | Fetch hourly ERA5 for one past day (temp + precip + wind) |
 | `scripts/fetch_era5_event.py` | Download an ERA5 reanalysis sequence from CDS |
 | `scripts/grib_to_frames.py` | Forecast or reanalysis GRIB → PNG frames + wind JSON |
 | `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |

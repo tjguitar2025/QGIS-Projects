@@ -25,10 +25,22 @@
   <button class="product" data-product="aq">😷 Air Quality</button>
   <div class="section">Overlay</div>
   <button id="windToggle">💨 Wind particles</button>
+  <div class="section">History</div>
+  <select id="eventSelect"></select>
+  <button id="loadEvent">📼 Study this event</button>
+  <div id="eventStatus"></div>
   <div class="section">Model</div>
   <button id="runForecast">▶ Run new forecast</button>
   <div id="runStatus"></div>
   <div id="initInfo"></div>
+</div>
+
+<div id="eventBanner" hidden>
+  <div id="eventBannerText">
+    <b id="eventTitle"></b>
+    <span id="eventDesc"></span>
+  </div>
+  <button id="exitEvent">⏹ Exit history</button>
 </div>
 
 <div id="legend"></div>

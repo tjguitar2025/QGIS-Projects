@@ -14,6 +14,10 @@ and air quality.
 - **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
 - **😷 Air quality** — US AQI grid over the visible map from the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (free, no key)
 - **📍 Click anywhere** — current conditions popup (Open-Meteo)
+- **🔎 City search** — geocode any world city, fly to it, and get its 6-day daily forecast
+- **📼 Study historical events** — pick a disaster (Hurricane Katrina, the 2008 Afghanistan
+  blizzard, Typhoon Haiyan, …) and replay the actual atmosphere from ERA5 reanalysis:
+  watch the pressure core deepen, moisture feed in, and the wind field spin up, step by step
 - **▶ Run new forecast** — one button in the UI triggers a fresh model run on your GPU
 
 ## Pipeline
@@ -32,7 +36,7 @@ Initial state: ECMWF open data, today 00z (or ERA5 via CDS with -Source cds)
 2. `conda env create -f environment.yml`
 3. Install CUDA PyTorch: `conda run -n weather pip install torch --index-url https://download.pytorch.org/whl/cu128`
    and `conda run -n weather pip install onnxruntime-gpu`
-4. *(optional, only for `-Source cds`)* Create a free
+4. *(needed for the History feature and `-Source cds`)* Create a free
    [Copernicus CDS](https://cds.climate.copernicus.eu) account and put your
    key in `~/.cdsapirc`:
    ```
@@ -71,8 +75,12 @@ conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib 
 |---|---|
 | `app/` | Web app (Leaflet + leaflet-velocity), served by `server.py` |
 | `app/frames/` | Generated forecast frames (not committed) |
-| `server.py` | FastAPI server + run-forecast trigger API |
-| `scripts/grib_to_frames.py` | Forecast GRIB → PNG frames + wind JSON |
+| `app/frames_event/` | Frames for the loaded historical event (not committed) |
+| `app/events.json` | Curated catalog of historical weather disasters |
+| `server.py` | FastAPI server + run-forecast / load-event trigger APIs |
+| `load_event.ps1` | Fetch ERA5 for an event's date range and render its frames |
+| `scripts/fetch_era5_event.py` | Download an ERA5 reanalysis sequence from CDS |
+| `scripts/grib_to_frames.py` | Forecast or reanalysis GRIB → PNG frames + wind JSON |
 | `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
 | `scripts/skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |
 

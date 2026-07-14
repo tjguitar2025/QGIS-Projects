@@ -1,0 +1,100 @@
+{
+  "events": [
+    {
+      "id": "katrina-2005",
+      "name": "Hurricane Katrina",
+      "start": "2005-08-23", "end": "2005-08-31",
+      "lat": 26.0, "lon": -88.0, "zoom": 5,
+      "watch": "msl",
+      "description": "Formed as a depression over the Bahamas Aug 23, crossed Florida, then exploded to Category 5 (902 mb) over the Gulf before devastating New Orleans on Aug 29. Watch the pressure minimum deepen and the wind field spin up in the Gulf."
+    },
+    {
+      "id": "afghan-blizzard-2008",
+      "name": "2008 Afghanistan Blizzard",
+      "start": "2008-01-08", "end": "2008-01-22",
+      "lat": 34.5, "lon": 66.0, "zoom": 5,
+      "watch": "2t",
+      "description": "Afghanistan's coldest winter in decades — temperatures fell below −30 °C with up to 180 cm of mountain snow, killing over 900 people. Watch the temperature layer as successive cold surges pour off the Central Asian steppe."
+    },
+    {
+      "id": "sandy-2012",
+      "name": "Hurricane Sandy",
+      "start": "2012-10-22", "end": "2012-10-31",
+      "lat": 35.0, "lon": -73.0, "zoom": 5,
+      "watch": "msl",
+      "description": "\"Superstorm\" Sandy grew into the largest Atlantic hurricane on record (wind field ~1,850 km) before hooking west into New Jersey on Oct 29. Watch it merge with a mid-latitude trough — the hybrid transition that made it so destructive."
+    },
+    {
+      "id": "harvey-2017",
+      "name": "Hurricane Harvey",
+      "start": "2017-08-23", "end": "2017-09-01",
+      "lat": 28.5, "lon": -95.5, "zoom": 6,
+      "watch": "tcwv",
+      "description": "Harvey stalled over Texas for days, dropping 1,500+ mm of rain on Houston. Watch the moisture layer — a conveyor of Gulf water vapor feeding the stationary storm is exactly why it flooded so catastrophically."
+    },
+    {
+      "id": "haiyan-2013",
+      "name": "Typhoon Haiyan (Yolanda)",
+      "start": "2013-11-03", "end": "2013-11-11",
+      "lat": 11.0, "lon": 128.0, "zoom": 5,
+      "watch": "msl",
+      "description": "One of the strongest tropical cyclones ever observed at landfall (~895 mb, 1-min winds ~315 km/h), devastating Tacloban in the Philippines on Nov 8. Watch how compact and violent the pressure core is compared to Sandy's sprawl."
+    },
+    {
+      "id": "heatwave-2003",
+      "name": "2003 European Heat Wave",
+      "start": "2003-08-01", "end": "2003-08-15",
+      "lat": 46.5, "lon": 3.0, "zoom": 5,
+      "watch": "2t",
+      "description": "A blocking high parked over western Europe for two weeks; France saw 40 °C+ and the death toll exceeded 70,000. Watch the temperature layer glow as the stagnant dome intensifies day after day."
+    },
+    {
+      "id": "storm-of-century-1993",
+      "name": "1993 Storm of the Century",
+      "start": "1993-03-11", "end": "1993-03-15",
+      "lat": 35.0, "lon": -80.0, "zoom": 4,
+      "watch": "msl",
+      "description": "A cyclone bombed out in the Gulf of Mexico and ran the entire US East Coast, setting low-pressure records from Florida to Maine with blizzards and a Gulf storm surge. Watch the explosive deepening on Mar 12–13."
+    },
+    {
+      "id": "texas-cold-2021",
+      "name": "2021 Texas Cold Wave (Winter Storm Uri)",
+      "start": "2021-02-10", "end": "2021-02-20",
+      "lat": 31.0, "lon": -99.0, "zoom": 5,
+      "watch": "2t",
+      "description": "A collapsed polar vortex spilled Arctic air to the Gulf Coast; Texas hit −20 °C and the power grid failed for millions. Watch the cold pool slide south out of Canada and sit over Texas for a week."
+    },
+    {
+      "id": "nargis-2008",
+      "name": "Cyclone Nargis",
+      "start": "2008-04-27", "end": "2008-05-04",
+      "lat": 16.0, "lon": 92.0, "zoom": 5,
+      "watch": "msl",
+      "description": "Nargis turned east across the Bay of Bengal and drove a storm surge 40 km up the Irrawaddy Delta, killing over 138,000 in Myanmar. Watch the late eastward turn that forecasts of the era struggled to catch."
+    },
+    {
+      "id": "andrew-1992",
+      "name": "Hurricane Andrew",
+      "start": "1992-08-16", "end": "1992-08-28",
+      "lat": 25.5, "lon": -78.0, "zoom": 5,
+      "watch": "msl",
+      "description": "A tiny but ferocious Category 5 that flattened Homestead, Florida on Aug 24 (922 mb). Watch how small the circulation is — compact storms like Andrew are among the hardest to represent in coarse models."
+    },
+    {
+      "id": "ice-storm-1998",
+      "name": "1998 North American Ice Storm",
+      "start": "1998-01-04", "end": "1998-01-10",
+      "lat": 45.5, "lon": -73.5, "zoom": 5,
+      "watch": "2t",
+      "description": "Five days of freezing rain coated Quebec, Ontario, and New England in up to 100 mm of ice, collapsing the power grid for weeks. Watch warm Gulf air overrunning a shallow cold layer — the classic ice-storm setup."
+    },
+    {
+      "id": "idai-2019",
+      "name": "Cyclone Idai",
+      "start": "2019-03-04", "end": "2019-03-16",
+      "lat": -19.5, "lon": 36.0, "zoom": 5,
+      "watch": "tcwv",
+      "description": "Idai made a rare looping track in the Mozambique Channel, then flooded Beira and inland Mozambique, Zimbabwe, and Malawi — one of the Southern Hemisphere's deadliest cyclones. Watch the loop and the moisture surge inland."
+    }
+  ]
+}

@@ -109,31 +109,51 @@ def _north_up(frame: xr.DataArray) -> np.ndarray:
     return data
 
 
-def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dict):
+def _iter_frames(da: xr.DataArray, analysis: bool):
+    """Yield (hours, frame) pairs.
+
+    Forecast GRIBs (ai-models output) have a `step` dimension from one init
+    time; reanalysis GRIBs (ERA5 event sequences) have a `time` dimension of
+    analysis times — hours are counted from the first one.
+    """
+    if analysis:
+        times = da.time.values
+        t0 = times[0]
+        for t in times:
+            yield int((t - t0) / np.timedelta64(1, "h")), da.sel(time=t)
+    else:
+        steps = da.step.values if "step" in da.dims else [da.step.values]
+        for step in steps:
+            yield int(step / np.timedelta64(1, "h")), da.sel(step=step)
+
+
+def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dict,
+                        analysis: bool = False):
     spec = VARS[var]
     da = _shift_to_180(_open_var(grib_path, var))
     cmap = _cmap(spec)
     vardir = outdir / var
     vardir.mkdir(parents=True, exist_ok=True)
 
-    steps = da.step.values if "step" in da.dims else [da.step.values]
-    for step in steps:
-        frame = da.sel(step=step)
-        hours = int(step / np.timedelta64(1, "h"))
+    count = 0
+    for hours, frame in _iter_frames(da, analysis):
         norm = np.clip((_north_up(frame) - spec["min"]) / (spec["max"] - spec["min"]), 0, 1)
         rgba = (cmap(norm) * 255).astype(np.uint8)
         Image.fromarray(rgba, "RGBA").save(vardir / f"{var}_+{hours:03d}h.png", optimize=True)
         steps_meta.setdefault(hours, np.datetime_as_string(frame.valid_time.values, unit="m"))
-    print(f"{var}: {len(steps)} PNG frames")
+        count += 1
+    print(f"{var}: {count} PNG frames")
 
 
-def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict):
+def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict,
+                      analysis: bool = False):
     # keep native 0..360 ordering; leaflet-velocity handles the wrap itself
     u = _open_var(grib_path, "10u")
     v = _open_var(grib_path, "10v")
     winddir = outdir / "wind"
     winddir.mkdir(parents=True, exist_ok=True)
-    ref_time = np.datetime_as_string(u.time.values, unit="s") + "Z"
+    t0 = u.time.values[0] if analysis else u.time.values
+    ref_time = np.datetime_as_string(t0, unit="s") + "Z"
 
     s = WIND_SUBSAMPLE
     lat = u.latitude.values[::s]
@@ -147,13 +167,13 @@ def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict):
         "refTime": ref_time,
     }
 
-    steps = u.step.values if "step" in u.dims else [u.step.values]
-    for step in steps:
-        hours = int(step / np.timedelta64(1, "h"))
+    count = 0
+    for (hours, u_frame), (_, v_frame) in zip(_iter_frames(u, analysis),
+                                              _iter_frames(v, analysis)):
         records = []
-        for num, da in ((2, u), (3, v)):  # GRIB parameterNumber: 2=U, 3=V
-            data = da.sel(step=step).values[::s, ::s]
-            if da.latitude.values[0] < da.latitude.values[-1]:
+        for num, frame in ((2, u_frame), (3, v_frame)):  # GRIB parameterNumber: 2=U, 3=V
+            data = frame.values[::s, ::s]
+            if frame.latitude.values[0] < frame.latitude.values[-1]:
                 data = data[::-1, :]
             header = dict(header_base, parameterNumber=num, forecastTime=hours)
             records.append({
@@ -162,20 +182,20 @@ def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict):
             })
         with open(winddir / f"wind_+{hours:03d}h.json", "w") as f:
             json.dump(records, f, separators=(",", ":"))
-    print(f"wind: {len(steps)} JSON frames")
+        count += 1
+    print(f"wind: {count} JSON frames")
 
 
-def write_timeline(grib_path: Path, outdir: Path):
+def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False):
     da = _open_var(grib_path, "2t")
-    steps = da.step.values if "step" in da.dims else [da.step.values]
     steps_meta = {
-        int(s / np.timedelta64(1, "h")):
-            np.datetime_as_string(da.sel(step=s).valid_time.values, unit="m")
-        for s in steps
+        h: np.datetime_as_string(frame.valid_time.values, unit="m")
+        for h, frame in _iter_frames(da, analysis)
     }
     hours = sorted(steps_meta)
+    t0 = da.time.values[0] if analysis else da.time.values
     timeline = {
-        "init_time": np.datetime_as_string(da.time.values, unit="m"),
+        "init_time": np.datetime_as_string(t0, unit="m"),
         "steps": hours,
         "valid_times": [steps_meta[h] for h in hours],
         "bounds": [[-90, -180], [90, 180]],
@@ -199,16 +219,18 @@ def main():
     p.add_argument("grib", type=Path)
     p.add_argument("--var", choices=[*VARS, "wind"])
     p.add_argument("--timeline", action="store_true")
+    p.add_argument("--analysis", action="store_true",
+                   help="input is a reanalysis time sequence (ERA5 event), not a forecast")
     p.add_argument("--outdir", type=Path,
                    default=Path(__file__).parent.parent / "app" / "frames")
     args = p.parse_args()
 
     if args.timeline:
-        write_timeline(args.grib, args.outdir)
+        write_timeline(args.grib, args.outdir, analysis=args.analysis)
     elif args.var == "wind":
-        write_wind_frames(args.grib, args.outdir, {})
+        write_wind_frames(args.grib, args.outdir, {}, analysis=args.analysis)
     elif args.var:
-        write_scalar_frames(args.grib, args.var, args.outdir, {})
+        write_scalar_frames(args.grib, args.var, args.outdir, {}, analysis=args.analysis)
     else:
         p.error("pass --var <name> or --timeline")
 

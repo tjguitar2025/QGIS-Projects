@@ -22,9 +22,26 @@ function framesBase() {
   return state.dataset === "event" ? "frames_event" : "frames";
 }
 
-const map = L.map("map", { zoomControl: false, minZoom: 2, worldCopyJump: true })
-  .setView([39.1, -94.6], 5);
+const map = L.map("map", {
+  zoomControl: false,
+  worldCopyJump: true,          // re-center across date-line crossings...
+  // ...invisibly, because every overlay below is drawn 3x (lng ±360)
+  // keep the world tall enough to fill the window - no gray void above the
+  // poles - and stop vertical panning at the map edge
+  minZoom: Math.max(2, Math.ceil(Math.log2(window.innerHeight / 256))),
+  maxBounds: [[-85.06, -Infinity], [85.06, Infinity]],
+  maxBoundsViscosity: 1.0,
+}).setView([39.1, -94.6], 5);
 L.control.zoom({ position: "bottomright" }).addTo(map);
+// worldCopyJump only re-centers on drags; catch every other way of drifting a
+// world away (inertia, flyTo, keyboard). The snap is invisible: identical
+// overlay copies exist at ±360.
+map.on("moveend", () => {
+  const c = map.getCenter();
+  if (Math.abs(c.lng) > 180) {
+    map.panTo([c.lat, L.Util.wrapNum(c.lng, [-180, 180], true)], { animate: false });
+  }
+});
 // Base without labels; labels drawn separately in a pane ABOVE the weather
 // overlays and brightened to white via CSS (see .labels-pane in style.css) —
 // keeps city names readable on top of temperature/precipitation layers.
@@ -38,8 +55,37 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.p
   subdomains: "abcd", maxZoom: 19, pane: "labels",
 }).addTo(map);
 
+/* ---------- state/country borders (above overlays, below labels) ---------- */
+map.createPane("borders").style.zIndex = 430;
+const borderRenderer = L.canvas({ pane: "borders" });
+// draw each set at lng -360/0/+360 so borders stay visible while panning
+// across the date line (GeoJSON, unlike tiles, doesn't repeat on its own)
+function shiftCoords(c, dx) {
+  return typeof c[0] === "number" ? [c[0] + dx, c[1]] : c.map(x => shiftCoords(x, dx));
+}
+async function addBorders(url, style) {
+  const gj = await (await fetch(url)).json();
+  for (const dx of [-360, 0, 360]) {
+    const copy = dx === 0 ? gj : {
+      type: "FeatureCollection",
+      features: gj.features.map(f => ({
+        type: "Feature", properties: {},
+        geometry: { type: f.geometry.type,
+                    coordinates: shiftCoords(f.geometry.coordinates, dx) },
+      })),
+    };
+    L.geoJSON(copy, { style, renderer: borderRenderer, interactive: false }).addTo(map);
+  }
+}
+addBorders("borders/countries.json", { color: "#ffffff", weight: 1.1, opacity: 0.55 });
+addBorders("borders/us_states.json", { color: "#ffffff", weight: 0.8, opacity: 0.4 });
+
 /* ---------- local forecast overlays (PNG frames) ---------- */
-const scalarOverlay = L.imageOverlay("", [[-90, -180], [90, 180]], { opacity: 0.65 });
+// three copies of every frame (lng ±360) make panning across the date line
+// seamless - the overlay never runs out and worldCopyJump's re-center is invisible
+const scalarOverlays = [-360, 0, 360].map(dx =>
+  L.imageOverlay("", [[-90, -180 + dx], [90, 180 + dx]], { opacity: 0.65 }));
+const scalarGroup = L.layerGroup(scalarOverlays);
 const frameCache = {};            // url -> Image (preload)
 
 function frameUrl(product, idx) {
@@ -179,8 +225,8 @@ function fmtValid(iso) {
 
 function renderScalar() {
   const url = frameUrl(state.product, state.stepIdx);
-  scalarOverlay.setUrl(url);
-  if (!map.hasLayer(scalarOverlay)) scalarOverlay.addTo(map);
+  scalarOverlays.forEach(o => o.setUrl(url));
+  if (!map.hasLayer(scalarGroup)) scalarGroup.addTo(map);
 }
 
 function updateTimeUI() {
@@ -248,12 +294,12 @@ async function setProduct(product) {
 
   map.removeLayer(aqGroup); hideRadar();
   if (product === "radar") {
-    map.removeLayer(scalarOverlay);
+    map.removeLayer(scalarGroup);
     await loadRadar();
     preloadRadar();
     showRadarFrame(state.radarIdx);
   } else if (product === "aq") {
-    map.removeLayer(scalarOverlay);
+    map.removeLayer(scalarGroup);
     aqGroup.addTo(map);
     await refreshAQ();
   } else {

@@ -15,6 +15,9 @@ and air quality.
   (ECMWF open data, 6h amounts) alongside the model run, ERA5 1h amounts for past days
 - **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
 - **😷 Air quality** — US AQI grid over the visible map from the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (free, no key)
+- **🗺️ Crisp borders & seamless panning** — country and US-state boundaries (Natural
+  Earth, drawn above the weather layers) stay readable on any map; overlays repeat across
+  the date line so panning around the world is one continuous motion with no cutoffs
 - **📍 Click anywhere** — current conditions popup (Open-Meteo)
 - **🔎 City search** — geocode any world city, fly to it, and get its 6-day daily forecast
 - **📼 Study historical events** — pick a disaster (Hurricane Katrina, the 2008 Afghanistan

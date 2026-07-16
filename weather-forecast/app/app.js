@@ -618,7 +618,7 @@ loadDayBtn.addEventListener("click", async () => {
   } catch { /* nothing loaded yet */ }
 
   setHistoryButtons(false);
-  eventStatus.textContent = "Requesting hourly ERA5 for that day… (first load can take several minutes)";
+  eventStatus.textContent = "Requesting hourly ERA5 for that day… (cached days load in seconds; new days take a few minutes)";
   try {
     const r = await fetch("/api/load-day", {
       method: "POST",

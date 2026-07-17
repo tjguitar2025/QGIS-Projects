@@ -687,16 +687,26 @@ runBtn.addEventListener("click", async () => {
   await fetch("/api/run-forecast", { method: "POST" });
   pollRun();
 });
+// the server keeps reporting "done" after a run finishes, so only reload when
+// THIS page watched the run happen — otherwise every reload sees "done" and
+// reloads again, forever
+let runWasActive = false;
 async function pollRun() {
   const r = await (await fetch("/api/run-status")).json();
   if (r.state === "running") {
+    runWasActive = true;
     runBtn.disabled = true;
     runStatus.textContent = "Forecast running… " + (r.detail || "");
     setTimeout(pollRun, 5000);
   } else {
     runBtn.disabled = false;
-    if (r.state === "done") { runStatus.textContent = "Done — reloading"; location.reload(); }
-    else runStatus.textContent = r.state === "failed" ? "Run failed — see server log" : "";
+    if (r.state === "done" && runWasActive) {
+      runStatus.textContent = "Done — reloading";
+      location.reload();
+    } else {
+      runStatus.textContent = r.state === "failed" && runWasActive
+        ? "Run failed — see server log" : "";
+    }
   }
 }
 

@@ -17,6 +17,11 @@ and air quality.
   (ECMWF open data, 6h amounts) alongside the model run, ERA5 1h amounts for past days
 - **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
 - **😷 Air quality** — US AQI grid over the visible map from the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (free, no key)
+- **⛰️ Terrain-aware temperature** — the temperature map is downscaled onto a 0.1°
+  elevation model (ETOPO 2022) with a lapse-rate correction for the terrain the 25 km
+  model grid can't resolve: mountain ridges show cold, valleys show warm (run
+  `scripts/build_topo.py` once to enable; city/point forecasts are already
+  elevation-corrected by Open-Meteo)
 - **🗺️ Crisp borders & seamless panning** — country and US-state boundaries (Natural
   Earth, drawn above the weather layers) stay readable on any map; overlays repeat across
   the date line so panning around the world is one continuous motion with no cutoffs
@@ -109,6 +114,7 @@ conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib 
 | `scripts/fetch_opendata_tp.py` | Download IFS precipitation forecast (ECMWF open data) |
 | `scripts/fetch_aifs.py` | Download an ECMWF AIFS forecast (open data, all app variables incl. precip) |
 | `scripts/verify_forecast.py` | Archive daily analyses + score stored forecasts (skill trendline CSV) |
+| `scripts/build_topo.py` | One-time terrain dataset (ETOPO DEM + ERA5 orography) for sharpened 2t |
 | `scripts/grib_to_frames.py` | Forecast or reanalysis GRIB → PNG frames + wind JSON |
 | `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
 | `scripts/skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |

@@ -108,6 +108,12 @@ WIND_SUBSAMPLE = 4  # 0.25 deg grid -> 1 deg for leaflet-velocity
 ISOBAR_LEVELS = np.arange(872, 1088, 4)
 ISOBAR_WRAP = 24  # columns repeated past the date line so lines stay continuous
 
+# Terrain sharpening: redraw 2t on a 0.1 deg DEM grid with a fixed-lapse-rate
+# correction for the elevation the 0.25 deg model terrain can't resolve
+# (build the dataset once with build_topo.py; without it, frames stay 0.25 deg)
+TOPO_PATH = Path(__file__).parent.parent / "data" / "static" / "topo_0p1.npz"
+LAPSE_K_PER_M = 0.0065
+
 
 def _var_spec(var: str, analysis: bool) -> dict:
     """Per-mode variable spec. tp differs: reanalysis days are 1h amounts,
@@ -199,6 +205,32 @@ def _iter_frames(da: xr.DataArray, analysis: bool):
             yield int(step / np.timedelta64(1, "h")), da.sel(step=step)
 
 
+def _interp_wrap(da2d: xr.DataArray, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
+    """Bilinear-interpolate a lat/lon field to a finer grid, wrapping the last
+    longitude interval so the +180 edge doesn't come out NaN."""
+    first = da2d.isel(longitude=0)
+    first = first.assign_coords(longitude=float(da2d.longitude.values[0]) + 360.0)
+    ext = xr.concat([da2d, first], dim="longitude")
+    return ext.interp(latitude=lat, longitude=lon).values.astype(np.float32)
+
+
+def _topo_correction():
+    """(dem_lat, dem_lon, correction) for terrain-sharpened 2t, or None.
+
+    correction = lapse * (model_terrain - real_terrain) on the 0.1 deg grid:
+    positive (warmer) in valleys the model terrain floats above, negative
+    (colder) on peaks it smooths away."""
+    if not TOPO_PATH.exists():
+        return None
+    t = np.load(TOPO_PATH)
+    zm = xr.DataArray(
+        t["zmodel"], dims=("latitude", "longitude"),
+        coords={"latitude": t["zmodel_lat"], "longitude": t["zmodel_lon"]},
+    )
+    zm_hi = _interp_wrap(zm, t["dem_lat"], t["dem_lon"])
+    return t["dem_lat"], t["dem_lon"], LAPSE_K_PER_M * (zm_hi - t["dem"])
+
+
 def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dict,
                         analysis: bool = False):
     spec = _var_spec(var, analysis)
@@ -206,11 +238,19 @@ def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dic
     cmap = _cmap(spec)
     vardir = outdir / var
     vardir.mkdir(parents=True, exist_ok=True)
+    topo = _topo_correction() if var == "2t" else None
+    if topo is not None:
+        print("2t: terrain sharpening on (0.1 deg DEM + lapse-rate correction)")
 
     count = 0
     prev = None
     for hours, frame in _iter_frames(da, analysis):
-        vals = np.nan_to_num(_north_up(frame)) * spec.get("factor", 1.0)
+        if topo is not None:
+            dem_lat, dem_lon, corr = topo
+            # interp target lat runs 90..-90, so the result is already north-up
+            vals = _interp_wrap(frame, dem_lat, dem_lon) + corr
+        else:
+            vals = np.nan_to_num(_north_up(frame)) * spec.get("factor", 1.0)
         if var == "tp" and not analysis:
             # forecast tp accumulates from init; difference into per-step amounts
             vals, prev = (vals - prev if prev is not None else vals), vals

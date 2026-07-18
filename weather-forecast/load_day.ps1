@@ -1,6 +1,6 @@
 # Load a single historical day (hourly ERA5 reanalysis) into the app.
 #   .\load_day.ps1 -Date 2025-07-30
-# Renders temperature + precipitation + wind at hourly resolution into
+# Renders temperature + precipitation + wind + pressure/isobars at hourly resolution into
 # app\frames_event (shares the event playback machinery in the frontend).
 # Rendered frames are kept in data\day_cache\<date>; revisiting a day is a
 # file copy instead of a CDS download + render.
@@ -39,16 +39,17 @@ if (Test-Path $Grib) {
     Write-Host "cached: $Grib"
 } else {
     & $Conda run -n weather python "$Base\scripts\fetch_era5_event.py" `
-        --start $Date --end $Date --hourly --vars 2t,tp,wind --out $Grib
+        --start $Date --end $Date --hourly --vars 2t,tp,wind,msl --out $Grib
     if ($LASTEXITCODE -ne 0) { throw "ERA5 fetch failed" }
 }
 
-Write-Host "=== 2/2 Rendering day frames (3 variables in parallel) ===" -ForegroundColor Cyan
+Write-Host "=== 2/2 Rendering day frames (5 layers in parallel) ===" -ForegroundColor Cyan
 Clear-FramesDir
 # one process per variable keeps ecCodes/cfgrib memory bounded on big GRIBs;
-# the three processes run concurrently (independent vars, separate .idx files)
+# the processes run concurrently (msl + isobars share a field - the shared
+# .idx race is benign, cfgrib rebuilds it)
 $procs = @()
-foreach ($var in "2t", "tp", "wind") {
+foreach ($var in "2t", "tp", "wind", "msl", "isobars") {
     $procs += Start-Process -FilePath $Conda -PassThru -NoNewWindow `
         -ArgumentList "run", "-n", "weather", "python", $Frames, $Grib,
                       "--var", $var, "--analysis", "--outdir", $Out
@@ -59,7 +60,7 @@ foreach ($p in $procs) { $p.WaitForExit() }
 foreach ($p in $procs) {
     if ($p.ExitCode -ne 0) { throw "frame rendering failed (exit $($p.ExitCode))" }
 }
-& $Conda run -n weather python $Frames $Grib --timeline --analysis --vars 2t,tp --outdir $Out
+& $Conda run -n weather python $Frames $Grib --timeline --analysis --vars 2t,tp,msl --outdir $Out
 if ($LASTEXITCODE -ne 0) { throw "timeline generation failed" }
 
 # cache the rendered day for instant reloads later

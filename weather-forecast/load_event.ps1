@@ -28,7 +28,7 @@ foreach ($try in 1..5) {
 }
 New-Item -ItemType Directory -Force "$Base\app\frames_event" | Out-Null
 # one process per variable keeps ecCodes/cfgrib memory bounded on big GRIBs
-foreach ($var in "2t", "msl", "tcwv", "wind") {
+foreach ($var in "2t", "msl", "tcwv", "wind", "isobars") {
     & $Conda run -n weather python $Frames $Grib --var $var --analysis --outdir "$Base\app\frames_event"
     if ($LASTEXITCODE -ne 0) { throw "frame rendering of $var failed" }
 }

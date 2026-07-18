@@ -11,6 +11,7 @@ const state = {
   event: null,         // active event object from events.json
   product: "2t",       // '2t' | 'tp' | 'msl' | 'tcwv' | 'radar' | 'aq'
   windOn: true,
+  isobarsOn: false,
   stepIdx: 0,          // forecast step index
   radarIdx: 0,
   playing: false,
@@ -100,6 +101,38 @@ function preloadFrames(product) {
     if (!frameCache[url]) { const im = new Image(); im.src = url; frameCache[url] = im; }
   });
 }
+
+/* ---------- isobar overlay (MSL pressure contour PNGs) ---------- */
+// own pane above the color layers (400) and borders (430), below labels (450)
+map.createPane("isobars").style.zIndex = 435;
+const isobarOverlays = [-360, 0, 360].map(dx =>
+  L.imageOverlay("", [[-90, -180 + dx], [90, 180 + dx]],
+                 { opacity: 0.9, pane: "isobars" }));
+const isobarGroup = L.layerGroup(isobarOverlays);
+
+// isobars are contoured from the same msl field as the pressure layer, so
+// they exist exactly when the active timeline rendered msl (forecasts and
+// events always; past days loaded before msl was added to the fetch: no)
+function isobarsAvailable() {
+  return !!(state.timeline && state.timeline.vars.msl);
+}
+function updateIsobars() {
+  isobarBtn.disabled = !isobarsAvailable();
+  if (!state.isobarsOn || !isobarsAvailable()) {
+    map.removeLayer(isobarGroup);
+    return;
+  }
+  const url = frameUrl("isobars", state.stepIdx);
+  isobarOverlays.forEach(o => o.setUrl(url));
+  if (!map.hasLayer(isobarGroup)) isobarGroup.addTo(map);
+}
+const isobarBtn = document.getElementById("isobarToggle");
+isobarBtn.addEventListener("click", () => {
+  state.isobarsOn = !state.isobarsOn;
+  isobarBtn.classList.toggle("active", state.isobarsOn);
+  if (state.isobarsOn) preloadFrames("isobars");
+  updateIsobars();
+});
 
 /* ---------- wind particles ---------- */
 let velocityLayer = null;
@@ -306,6 +339,7 @@ async function setProduct(product) {
     preloadFrames(product);
     renderScalar();
   }
+  updateIsobars();   // dataset may have changed under us (event/day/forecast)
   renderLegend();
   updateTimeUI();
 }
@@ -319,6 +353,7 @@ function setStep(idx) {
     state.stepIdx = idx;
     renderScalar();
     updateWind();
+    updateIsobars();
   }
   updateTimeUI();
 }

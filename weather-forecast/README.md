@@ -11,6 +11,8 @@ and air quality.
 
 - **💨 Wind particles** — Windy-style animated particle flow from your own model's u/v fields ([leaflet-velocity](https://github.com/onaci/leaflet-velocity))
 - **🌡️ Temperature / 🌀 Pressure / 💧 Moisture maps** — colorized forecast frames animated with a time slider (up to 10 days)
+- **〰️ Isobars** — synoptic-chart pressure contours (4 hPa spacing, labeled, heavier
+  every 20 hPa) as a toggleable overlay on any layer — watch lows tighten and highs build
 - **🌦️ Precipitation maps** — radar-style animated rain maps: IFS forecast precipitation
   (ECMWF open data, 6h amounts) alongside the model run, ERA5 1h amounts for past days
 - **🌧️ Live radar** — observed + nowcast precipitation tiles from [RainViewer](https://www.rainviewer.com/api.html) (free for personal use)
@@ -24,7 +26,8 @@ and air quality.
   blizzard, Typhoon Haiyan, …) and replay the actual atmosphere from ERA5 reanalysis:
   watch the pressure core deepen, moisture feed in, and the wind field spin up, step by step
 - **🗓️ Study any past day** — pick any date from 1940 to ~6 days ago and replay it hour by
-  hour: temperature, precipitation (ERA5 1-hour accumulations, radar-style colors) and wind.
+  hour: temperature, precipitation (ERA5 1-hour accumulations, radar-style colors), wind,
+  pressure and isobars.
   New days download as parallel CDS requests and render all variables concurrently; days
   you've already studied are cached (`data/day_cache/`) and reload in about a second
 - **▶ Run new forecast** — one button in the UI triggers a fresh model run on your GPU

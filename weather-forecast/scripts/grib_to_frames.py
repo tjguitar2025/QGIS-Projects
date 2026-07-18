@@ -2,7 +2,7 @@
 
 Usage (one variable per invocation — a fresh process per variable keeps
 ecCodes/cfgrib memory use bounded on large multi-variable GRIBs):
-    python grib_to_frames.py <forecast.grib> --var 2t|msl|tcwv|wind
+    python grib_to_frames.py <forecast.grib> --var 2t|msl|tcwv|tp|wind|isobars
     python grib_to_frames.py <forecast.grib> --timeline
 
 Outputs, per 6h forecast step:
@@ -102,6 +102,11 @@ VARS = {
     },
 }
 WIND_SUBSAMPLE = 4  # 0.25 deg grid -> 1 deg for leaflet-velocity
+
+# Isobars: contour lines of MSL pressure every 4 hPa (synoptic-chart standard),
+# heavier line every 20 hPa. Range covers record extremes (870 Wilma .. 1084 Agata).
+ISOBAR_LEVELS = np.arange(872, 1088, 4)
+ISOBAR_WRAP = 24  # columns repeated past the date line so lines stay continuous
 
 
 def _var_spec(var: str, analysis: bool) -> dict:
@@ -218,6 +223,54 @@ def write_scalar_frames(grib_path: Path, var: str, outdir: Path, steps_meta: dic
     print(f"{var}: {count} PNG frames")
 
 
+def write_isobar_frames(grib_path: Path, outdir: Path, analysis: bool = False):
+    """Contour the MSL pressure field into transparent label-annotated PNGs.
+
+    Drawn oversized (5760x2880 for a 0.25-deg grid) so the thin lines and the
+    inline hPa labels stay crisp when Leaflet stretches the overlay.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import patheffects
+
+    da = _shift_to_180(_open_var(grib_path, "msl"))
+    lat = da.latitude.values
+    lon = da.longitude.values
+    # matplotlib contour wants ascending coords; ERA5/FCN lat runs 90..-90
+    flip = lat[0] > lat[-1]
+    if flip:
+        lat = lat[::-1]
+    # repeat the first columns past +180 so contours run through the date line
+    # instead of ending at the image edge (the axes clip them at x=180)
+    lon_ext = np.r_[lon, lon[:ISOBAR_WRAP] + 360.0]
+    halo = [patheffects.withStroke(linewidth=1.4, foreground="#0b1524")]
+    widths = [1.3 if lv % 20 == 0 else 0.65 for lv in ISOBAR_LEVELS]
+    vardir = outdir / "isobars"
+    vardir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for hours, frame in _iter_frames(da, analysis):
+        hpa = frame.values / 100.0
+        if flip:
+            hpa = hpa[::-1, :]
+        hpa = np.c_[hpa, hpa[:, :ISOBAR_WRAP]]
+        fig = plt.figure(figsize=(28.8, 14.4), dpi=200)
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.set_axis_off()
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-90, 90)
+        cs = ax.contour(lon_ext, lat, hpa, levels=ISOBAR_LEVELS,
+                        colors="white", linewidths=widths, alpha=0.75)
+        for t in ax.clabel(cs, fontsize=4.5, fmt="%d", inline=True, inline_spacing=3):
+            t.set_color("white")
+            t.set_path_effects(halo)
+        fig.savefig(vardir / f"isobars_+{hours:03d}h.png", transparent=True)
+        plt.close(fig)
+        count += 1
+    print(f"isobars: {count} PNG frames")
+
+
 def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict,
                       analysis: bool = False):
     # keep native 0..360 ordering; leaflet-velocity handles the wrap itself
@@ -297,7 +350,7 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("grib", type=Path)
-    p.add_argument("--var", choices=[*VARS, "wind"])
+    p.add_argument("--var", choices=[*VARS, "wind", "isobars"])
     p.add_argument("--timeline", action="store_true")
     p.add_argument("--vars", help="comma list of vars to describe in timeline.json "
                                   "(default: 2t,msl,tcwv)")
@@ -312,6 +365,8 @@ def main():
         write_timeline(args.grib, args.outdir, analysis=args.analysis, var_list=var_list)
     elif args.var == "wind":
         write_wind_frames(args.grib, args.outdir, {}, analysis=args.analysis)
+    elif args.var == "isobars":
+        write_isobar_frames(args.grib, args.outdir, analysis=args.analysis)
     elif args.var:
         write_scalar_frames(args.grib, args.var, args.outdir, {}, analysis=args.analysis)
     else:

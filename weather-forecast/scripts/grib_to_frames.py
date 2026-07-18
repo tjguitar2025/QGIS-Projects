@@ -131,6 +131,10 @@ def _open_var(grib_path: Path, short_name: str) -> xr.DataArray:
         grib_path, engine="cfgrib",
         backend_kwargs={"filter_by_keys": {"shortName": short_name}},
     )
+    if not ds.data_vars and short_name == "tcwv":
+        # AIFS publishes total column water (tcw) instead of water vapor;
+        # near-identical field, rendered on the same moisture scale
+        return _open_var(grib_path, "tcw")
     return ds[list(ds.data_vars)[0]]
 
 
@@ -313,7 +317,7 @@ def write_wind_frames(grib_path: Path, outdir: Path, steps_meta: dict,
 
 
 def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
-                   var_list: list | None = None):
+                   var_list: list | None = None, model: str = "FourCastNetv2 · local GPU"):
     da = _open_var(grib_path, "2t")
     steps_meta = {
         h: np.datetime_as_string(frame.valid_time.values, unit="m")
@@ -323,6 +327,7 @@ def write_timeline(grib_path: Path, outdir: Path, analysis: bool = False,
     t0 = da.time.values[0] if analysis else da.time.values
     var_list = var_list or ["2t", "msl", "tcwv"]
     timeline = {
+        "model": model,
         "init_time": np.datetime_as_string(t0, unit="m"),
         "steps": hours,
         "valid_times": [steps_meta[h] for h in hours],
@@ -354,6 +359,8 @@ def main():
     p.add_argument("--timeline", action="store_true")
     p.add_argument("--vars", help="comma list of vars to describe in timeline.json "
                                   "(default: 2t,msl,tcwv)")
+    p.add_argument("--model", default="FourCastNetv2 · local GPU",
+                   help="model label shown in the app legend")
     p.add_argument("--analysis", action="store_true",
                    help="input is a reanalysis time sequence (ERA5 event), not a forecast")
     p.add_argument("--outdir", type=Path,
@@ -362,7 +369,8 @@ def main():
 
     if args.timeline:
         var_list = [v.strip() for v in args.vars.split(",")] if args.vars else None
-        write_timeline(args.grib, args.outdir, analysis=args.analysis, var_list=var_list)
+        write_timeline(args.grib, args.outdir, analysis=args.analysis,
+                       var_list=var_list, model=args.model)
     elif args.var == "wind":
         write_wind_frames(args.grib, args.outdir, {}, analysis=args.analysis)
     elif args.var == "isobars":

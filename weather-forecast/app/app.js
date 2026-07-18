@@ -47,7 +47,7 @@ map.on("moveend", () => {
 // overlays and brightened to white via CSS (see .labels-pane in style.css) —
 // keeps city names readable on top of temperature/precipitation layers.
 L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; OpenStreetMap &copy; CARTO | forecast: local FourCastNetv2',
+  attribution: '&copy; OpenStreetMap &copy; CARTO | forecast: local AI models (&copy; ECMWF data)',
   subdomains: "abcd", maxZoom: 19,
 }).addTo(map);
 map.createPane("labels").classList.add("labels-pane");
@@ -327,7 +327,8 @@ function renderLegend() {
     const v = state.timeline.vars[state.product];
     const grad = v.gradient.join(",");
     const src = state.dataset === "event"
-      ? "ERA5 reanalysis · ECMWF/Copernicus" : "FourCastNetv2 · local GPU";
+      ? "ERA5 reanalysis · ECMWF/Copernicus"
+      : (state.timeline.model || "FourCastNetv2 · local GPU");
     legend.innerHTML = `<div class="title">${v.label} (${v.units})</div>
       <div class="bar" style="background:linear-gradient(to right,${grad})"></div>
       <div class="ticks">${v.ticks.map(t => `<span>${t}</span>`).join("")}</div>
@@ -756,8 +757,16 @@ loadDayBtn.addEventListener("click", async () => {
 const runBtn = document.getElementById("runForecast");
 const runStatus = document.getElementById("runStatus");
 runBtn.addEventListener("click", async () => {
-  if (!confirm("Run a new FourCastNetv2 forecast? This takes ~10–20 minutes (download + GPU inference + frame rendering).")) return;
-  await fetch("/api/run-forecast", { method: "POST" });
+  const model = document.getElementById("modelSelect").value;
+  const what = model === "aifs"
+    ? "Download the latest ECMWF AIFS forecast? This takes ~5–10 minutes (download + frame rendering)."
+    : "Run a new FourCastNetv2 forecast? This takes ~10–20 minutes (download + GPU inference + frame rendering).";
+  if (!confirm(what)) return;
+  await fetch("/api/run-forecast", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
   pollRun();
 });
 // the server keeps reporting "done" after a run finishes, so only reload when

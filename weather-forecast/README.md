@@ -33,7 +33,14 @@ and air quality.
   pressure and isobars.
   New days download as parallel CDS requests and render all variables concurrently; days
   you've already studied are cached (`data/day_cache/`) and reload in about a second
-- **▶ Run new forecast** — one button in the UI triggers a fresh model run on your GPU
+- **▶ Run new forecast** — one button in the UI triggers a fresh forecast, from a choice
+  of two models: **FourCastNetv2** (runs locally on your GPU) or **ECMWF AIFS** (the more
+  accurate operational AI model, downloaded free from ECMWF open data — no GPU needed,
+  with native precipitation)
+- **📈 Continuous verification** — every pipeline run archives the day's 00z IFS analysis
+  and scores all stored forecasts against it (global latitude-weighted RMSE + bias for
+  temperature and pressure, `data/verif/scores.csv`), so model skill is measured
+  continuously instead of assumed
 
 ## Pipeline
 
@@ -68,7 +75,8 @@ ECMWF's official asset store.
 ## Run
 
 ```powershell
-.\run_forecast.ps1                        # 6-day forecast from today 00z (ECMWF open data)
+.\run_forecast.ps1                        # 6-day FourCastNetv2 forecast from today 00z
+.\run_forecast.ps1 -Model aifs            # download ECMWF AIFS instead (no GPU needed)
 .\run_forecast.ps1 -LeadTime 240          # 10-day forecast
 .\run_forecast.ps1 -Source cds -Date 20260704   # init from ERA5 reanalysis instead
 .\start_app.ps1                           # start the app -> http://localhost:8050
@@ -99,6 +107,8 @@ conda run -n weather python scripts/skewt_at_point.py data/forecasts/<run>.grib 
 | `make_shortcut.ps1` | Create the "Local Weather" desktop shortcut |
 | `scripts/fetch_era5_event.py` | Download an ERA5 reanalysis sequence from CDS |
 | `scripts/fetch_opendata_tp.py` | Download IFS precipitation forecast (ECMWF open data) |
+| `scripts/fetch_aifs.py` | Download an ECMWF AIFS forecast (open data, all app variables incl. precip) |
+| `scripts/verify_forecast.py` | Archive daily analyses + score stored forecasts (skill trendline CSV) |
 | `scripts/grib_to_frames.py` | Forecast or reanalysis GRIB → PNG frames + wind JSON |
 | `scripts/check_gpu.py` | Verify env: CUDA torch, ONNX-GPU, ecCodes, cfgrib, cdsapi |
 | `scripts/skewt_at_point.py` | Skew-T log-P sounding at any lat/lon and forecast hour |

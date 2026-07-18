@@ -62,7 +62,7 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
 .leaflet-pane.labels-pane img { filter: brightness(2.4) contrast(1.1); }
 
 /* history: event picker + banner */
-#eventSelect {
+#eventSelect, #modelSelect {
   width: 100%; margin: 4px 0; padding: 7px 8px; font-size: 13px;
   color: #e6ecf5; background: #1a2438;
   border: 1px solid rgba(255,255,255,.10); border-radius: 7px; outline: none;

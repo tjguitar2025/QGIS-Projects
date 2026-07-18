@@ -40,7 +40,10 @@ def _watch(proc: subprocess.Popen):
 
 
 @app.post("/api/run-forecast")
-def run_forecast():
+def run_forecast(payload: dict | None = None):
+    model = (payload or {}).get("model", "fcnv2")
+    if model not in ("fcnv2", "aifs"):
+        raise HTTPException(400, "model must be fcnv2 or aifs")
     if run["proc"] and run["proc"].poll() is None:
         return {"state": "running"}
     LOG.parent.mkdir(exist_ok=True)
@@ -49,7 +52,7 @@ def run_forecast():
     # policy would refuse to run the pipeline script at all
     run["proc"] = subprocess.Popen(
         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
-         "-File", str(BASE / "run_forecast.ps1")],
+         "-File", str(BASE / "run_forecast.ps1"), "-Model", model],
         stdout=logf, stderr=subprocess.STDOUT, cwd=BASE,
     )
     run["state"] = "running"

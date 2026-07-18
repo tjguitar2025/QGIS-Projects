@@ -107,7 +107,8 @@ def score_forecasts():
                 key = (model, str(init), str(lead), var)
                 if lead == 0 or vt not in truths or key in done:
                     continue
-                f = fc.sel(step=st).values * scale
+                # single-step GRIBs carry step as a scalar coord, not a dim
+                f = (fc.sel(step=st) if "step" in fc.dims else fc).values * scale
                 if not np.isfinite(f).all() or (var == "2t" and f.mean() < 100 * scale):
                     print(f"{fp.name} +{lead}h {var}: corrupt/empty field, skipped")
                     continue

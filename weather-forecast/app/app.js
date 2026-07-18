@@ -81,6 +81,36 @@ async function addBorders(url, style) {
 addBorders("borders/countries.json", { color: "#ffffff", weight: 1.1, opacity: 0.55 });
 addBorders("borders/us_states.json", { color: "#ffffff", weight: 0.8, opacity: 0.4 });
 
+/* ---------- your location (blue dot) ---------- */
+// browser geolocation first — on a laptop that's WiFi-network positioning,
+// street-level accurate; if it's denied or errors, fall back to a
+// server-side IP-address lookup (city-level accurate)
+let locMarker = null;
+function showLocation(lat, lon, label) {
+  const icon = L.divIcon({ className: "", html: '<div class="user-dot"></div>',
+                           iconSize: [18, 18], iconAnchor: [9, 9] });
+  if (locMarker) map.removeLayer(locMarker);
+  locMarker = L.marker([lat, lon], { icon, keyboard: false })
+    .bindTooltip(label, { direction: "top", offset: [0, -10] })
+    .addTo(map);
+  map.setView([lat, lon], Math.max(map.getZoom(), 6));
+}
+function locateUser() {
+  const ipFallback = async () => {
+    try {
+      const r = await fetch("/api/geolocate");
+      if (!r.ok) return;
+      const g = await r.json();
+      showLocation(g.lat, g.lon, `Your location (by IP) · ${g.label}`);
+    } catch { /* offline - no dot */ }
+  };
+  if (!navigator.geolocation) { ipFallback(); return; }
+  navigator.geolocation.getCurrentPosition(
+    p => showLocation(p.coords.latitude, p.coords.longitude, "Your location"),
+    ipFallback, { timeout: 6000, maximumAge: 600000 });
+}
+locateUser();
+
 /* ---------- local forecast overlays (PNG frames) ---------- */
 // three copies of every frame (lng ±360) make panning across the date line
 // seamless - the overlay never runs out and worldCopyJump's re-center is invisible
@@ -433,10 +463,18 @@ function wmoIcon(code) {
 }
 
 async function searchCities(q) {
+  // count=100 is the API maximum — surfaces every matching town worldwide
+  // (Frederick MD, Frederick CO, Frederick OK, ...), not just the big ones
   const url = "https://geocoding-api.open-meteo.com/v1/search" +
-    `?name=${encodeURIComponent(q)}&count=6&language=en`;
+    `?name=${encodeURIComponent(q)}&count=100&language=en`;
   const r = await (await fetch(url)).json();
   return r.results || [];
+}
+
+function countryFlag(cc) {
+  // "US" -> 🇺🇸 (regional indicator symbols)
+  return cc ? [...cc.toUpperCase()].map(ch =>
+    String.fromCodePoint(0x1F1A5 + ch.charCodeAt(0))).join("") : "";
 }
 
 function renderResults(items) {
@@ -445,7 +483,7 @@ function renderResults(items) {
     const div = document.createElement("div");
     div.className = "search-item";
     const sub = [c.admin1, c.country].filter(Boolean).join(", ");
-    div.innerHTML = `${c.name} <span class="sub">${sub}</span>`;
+    div.innerHTML = `${countryFlag(c.country_code)} ${c.name} <span class="sub">${sub}</span>`;
     div.addEventListener("click", () => selectCity(c));
     searchResults.appendChild(div);
   });

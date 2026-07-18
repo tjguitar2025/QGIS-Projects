@@ -5,9 +5,11 @@ forecast run via the existing run_forecast.ps1 pipeline.
 
     conda run -n weather python server.py     ->  http://localhost:8050
 """
+import json
 import re
 import subprocess
 import threading
+import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -112,6 +114,26 @@ def load_day(payload: dict):
 
     threading.Thread(target=_watch_day, args=(event_run["proc"],), daemon=True).start()
     return {"state": "running"}
+
+
+@app.get("/api/geolocate")
+def geolocate():
+    """Approximate location of this machine from its public IP (ip-api.com,
+    free, no key). Done server-side so the browser needs no CORS or https.
+    Fallback for when the browser's own network-based geolocation is denied."""
+    try:
+        with urllib.request.urlopen(
+            "http://ip-api.com/json/?fields=status,lat,lon,city,regionName,country",
+            timeout=6,
+        ) as r:
+            info = json.load(r)
+    except OSError as e:
+        raise HTTPException(502, f"IP geolocation unreachable: {e}")
+    if info.get("status") != "success":
+        raise HTTPException(502, "IP geolocation failed")
+    label = ", ".join(x for x in (info.get("city"), info.get("regionName"),
+                                  info.get("country")) if x)
+    return {"lat": info["lat"], "lon": info["lon"], "label": label}
 
 
 @app.get("/api/event-status")

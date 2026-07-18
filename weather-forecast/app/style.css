@@ -105,7 +105,7 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
   position: absolute; top: 100%; left: 0; right: 0; z-index: 1200;
   background: #1a2438; border: 1px solid rgba(255,255,255,.12);
   border-radius: 7px; margin-top: 3px; overflow: hidden;
-  max-height: 220px; overflow-y: auto;
+  max-height: 320px; overflow-y: auto;
 }
 #searchResults:empty { display: none; }
 .search-item {
@@ -114,6 +114,23 @@ html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-s
 .search-item:hover { background: #2563eb; }
 .search-item .sub { color: #8fa3c0; font-size: 11px; }
 .search-item:hover .sub { color: #cfe0ff; }
+
+/* your-location blue dot */
+.user-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #2b7cff; border: 2.5px solid #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,.6);
+  position: relative;
+}
+.user-dot::after {
+  content: ""; position: absolute; inset: -7px; border-radius: 50%;
+  background: rgba(43,124,255,.35);
+  animation: locpulse 2.2s ease-out infinite; z-index: -1;
+}
+@keyframes locpulse {
+  0%   { transform: scale(.5); opacity: .9; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
 
 /* 6-day city forecast card */
 #cityForecast {

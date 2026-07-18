@@ -21,7 +21,10 @@ and air quality.
   Earth, drawn above the weather layers) stay readable on any map; overlays repeat across
   the date line so panning around the world is one continuous motion with no cutoffs
 - **📍 Click anywhere** — current conditions popup (Open-Meteo)
-- **🔎 City search** — geocode any world city, fly to it, and get its 6-day daily forecast
+- **🧭 Auto-location** — on load the app finds you (browser network geolocation, falling
+  back to a server-side IP lookup) and marks you with a pulsing blue dot
+- **🔎 City search** — type a name like "Frederick" and see every matching town worldwide
+  (up to 100 results, flagged by country); pick one to fly there and get its 6-day forecast
 - **📼 Study historical events** — pick a disaster (Hurricane Katrina, the 2008 Afghanistan
   blizzard, Typhoon Haiyan, …) and replay the actual atmosphere from ERA5 reanalysis:
   watch the pressure core deepen, moisture feed in, and the wind field spin up, step by step

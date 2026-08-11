@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Weather &amp; Earth Clouds</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <div id="brand">
+    <span id="brand-dot"></span>
+    <h1>Space Weather <span class="dim">·</span> Earth Clouds</h1>
+  </div>
+  <div id="controls">
+    <label class="ctl">Imagery
+      <select id="layerSelect">
+        <option value="VIIRS_SNPP_CorrectedReflectance_TrueColor">VIIRS Suomi-NPP · true color</option>
+        <option value="VIIRS_NOAA20_CorrectedReflectance_TrueColor">VIIRS NOAA-20 · true color</option>
+        <option value="MODIS_Terra_CorrectedReflectance_TrueColor">MODIS Terra · true color</option>
+        <option value="MODIS_Aqua_CorrectedReflectance_TrueColor">MODIS Aqua · true color</option>
+      </select>
+    </label>
+    <div class="ctl" id="dateCtl">
+      <button id="datePrev" title="previous day">&#9664;</button>
+      <input type="date" id="dateInput">
+      <button id="dateNext" title="next day">&#9654;</button>
+    </div>
+    <label class="ctl toggle">
+      <input type="checkbox" id="auroraToggle" checked> Aurora forecast
+    </label>
+  </div>
+</header>
+
+<main>
+  <div id="map"></div>
+
+  <aside id="panel">
+    <section class="card" id="tiles-card">
+      <h2>Conditions now</h2>
+      <div id="tiles">
+        <div class="tile"><div class="t-label">Solar wind speed</div><div class="t-value" id="t-speed">—</div><div class="t-sub">km/s</div></div>
+        <div class="tile"><div class="t-label">Density</div><div class="t-value" id="t-density">—</div><div class="t-sub">p/cm³</div></div>
+        <div class="tile"><div class="t-label">Bz (IMF)</div><div class="t-value" id="t-bz">—</div><div class="t-sub">nT · south = storm fuel</div></div>
+        <div class="tile"><div class="t-label">Kp index</div><div class="t-value" id="t-kp">—</div><div class="t-sub" id="t-kp-sub">planetary, 3-h</div></div>
+        <div class="tile"><div class="t-label">X-ray flux</div><div class="t-value" id="t-xray">—</div><div class="t-sub" id="t-xray-sub">GOES 0.1–0.8 nm</div></div>
+        <div class="tile"><div class="t-label">Data from</div><div class="t-value" id="t-sat" style="font-size:16px">—</div><div class="t-sub">L1 spacecraft</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Planetary K-index <span class="dim">· last 3 days</span></h2>
+      <div class="chart" id="kp-chart"></div>
+      <div class="statuskey">
+        <span><i class="sw good"></i>quiet</span>
+        <span><i class="sw warning"></i>active</span>
+        <span><i class="sw serious"></i>storm G1–G2</span>
+        <span><i class="sw critical"></i>storm G3+</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Solar wind <span class="dim">· last 24 h</span></h2>
+      <div class="legend" id="sw-legend"></div>
+      <div class="chart" id="speed-chart"></div>
+      <div class="chart" id="bz-chart"></div>
+    </section>
+
+    <section class="card">
+      <h2>X-ray flux <span class="dim">· flares, last 24 h</span></h2>
+      <div class="chart" id="xray-chart"></div>
+    </section>
+
+    <section class="card">
+      <h2>The Sun right now <span class="dim">· SDO</span></h2>
+      <div id="sun-row">
+        <figure><img id="sun-193" alt="SDO AIA 193 - corona"><figcaption>Corona · AIA 193</figcaption></figure>
+        <figure><img id="sun-304" alt="SDO AIA 304 - chromosphere"><figcaption>Prominences · AIA 304</figcaption></figure>
+        <figure><img id="sun-hmi" alt="SDO HMI - sunspots"><figcaption>Sunspots · HMI</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Active alerts <span class="dim">· NOAA SWPC</span></h2>
+      <ul id="alerts" class="feed"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Recent events <span class="dim">· NASA DONKI, 7 days</span></h2>
+      <ul id="events" class="feed"></ul>
+    </section>
+
+    <p id="attrib">Imagery: NASA GIBS (Worldview) · Space weather: NOAA SWPC · Events: NASA DONKI ·
+    Sun: NASA SDO · Aurora: SWPC OVATION · Basemap © OpenStreetMap © CARTO</p>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
